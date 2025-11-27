@@ -67,3 +67,9 @@
     <div id="root" class="w-full h-full"></div>
   </body>
 </html>
+<script>
+  // 欺骗 Vercel 的前端环境，让它以为 process 对象是存在的，防止崩溃
+  window.process = { env: {} }; 
+  // 如果你的应用用到 Firebase，也需要添加类似定义
+  window.Firebase = {};
+</script>
