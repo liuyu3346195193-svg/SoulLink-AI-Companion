@@ -32,7 +32,19 @@ const getApiKey = (): string => {
   return key;
 };
 
-const ai = new GoogleGenAI({ apiKey: getApiKey() });
+// Lazy Initialization Wrapper
+// This prevents the app from crashing at startup (White Screen) if the Key is missing.
+// The error will only occur when the user actually tries to chat.
+let aiInstance: GoogleGenAI | null = null;
+
+const getAI = () => {
+  if (!aiInstance) {
+    const key = getApiKey();
+    // Allow empty key initialization to prevent crash, but API calls will fail gracefully later
+    aiInstance = new GoogleGenAI({ apiKey: key });
+  }
+  return aiInstance;
+};
 
 const IMAGE_TRIGGER_KEYWORDS = [
     'photo', 'picture', 'image', 'selfie', 'view', 'look at', 'see', 'draw', 
@@ -116,6 +128,7 @@ export const generateReply = async (
   imageBase64?: string
 ): Promise<{ text: string; image?: string }> => {
   try {
+    const ai = getAI(); // Lazy load
     const lowerMsg = userMessage.toLowerCase();
     const isImageTriggered = IMAGE_TRIGGER_KEYWORDS.some(kw => lowerMsg.includes(kw));
 
@@ -168,12 +181,13 @@ export const generateReply = async (
 
   } catch (error) {
     console.error("Gemini API Error:", error);
-    return { text: "(API Key Missing or Network Error)" };
+    return { text: "(System: Please check your API Key configuration in Vercel settings.)" };
   }
 };
 
 async function analyzeUserPhoto(photoBase64: string): Promise<string> {
     try {
+        const ai = getAI();
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
             contents: {
@@ -195,6 +209,7 @@ export const synthesizePhoto = async (
     sceneDescription: string
 ): Promise<string | null> => {
     try {
+        const ai = getAI();
         const userAnalysis = await analyzeUserPhoto(userPhotoBase64.split(',')[1]);
         
         const prompt = `
@@ -239,6 +254,7 @@ export const generateProactiveMessage = async (
     triggerType: 'morning' | 'night' | 'no_reply'
 ): Promise<string> => {
     try {
+        const ai = getAI();
         const systemPrompt = buildSystemInstruction(companion);
         
         let userContext = "";
@@ -268,6 +284,7 @@ export const generateProactiveMessage = async (
 // V1.3.1 A8: Structured Moment Generation
 export const generateSocialPostStructured = async (companion: Companion): Promise<{text_content: string, image_prompt: string, location: string} | null> => {
   try {
+    const ai = getAI();
     const { empathy, rationality, humor, creativity, intimacy } = companion.dimensions;
     const systemInstruction = `
 You are ${companion.name}. Generate a social media post JSON based on your persona dimensions (0-100).
@@ -309,6 +326,7 @@ Rules:
 // Helper for A8: Generate Image from Prompt
 export const generateImageFromPrompt = async (prompt: string): Promise<string | null> => {
     try {
+        const ai = getAI();
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash-image',
             contents: { parts: [{ text: prompt }] }
@@ -330,6 +348,7 @@ export const generateImageFromPrompt = async (prompt: string): Promise<string | 
 // V1.3.1 A9: Conflict Analysis
 export const analyzeConflictState = async (chatHistory: Message[]): Promise<{user_negative_score: number, conflict_level: 'Low'|'Medium'|'High'}> => {
     try {
+        const ai = getAI();
         // Take last 10 messages
         const recentHistory = chatHistory.slice(-10).map(m => `${m.role}: ${m.content}`).join('\n');
         
@@ -365,6 +384,7 @@ export const analyzeConflictState = async (chatHistory: Message[]): Promise<{use
 // A9: AI Reaction to User Moment
 export const generateMomentComment = async (companion: Companion, momentContent: string): Promise<string> => {
     try {
+        const ai = getAI();
         const systemPrompt = buildSystemInstruction(companion);
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
@@ -380,6 +400,7 @@ export const generateMomentComment = async (companion: Companion, momentContent:
 // V1.4 A12: AI Reply to Moment Comment
 export const generateMomentReply = async (companion: Companion, momentContent: string, userComment: string): Promise<string> => {
     try {
+        const ai = getAI();
         // V1.4 A12: Inject Conflict State & Supplementary via buildSystemInstruction
         const systemPrompt = buildSystemInstruction(companion);
 
@@ -408,6 +429,7 @@ export const generateMomentReply = async (companion: Companion, momentContent: s
 // V1.4 A11: Translate
 export const translateText = async (text: string, targetLang: 'en' | 'zh'): Promise<string> => {
     try {
+        const ai = getAI();
         const target = targetLang === 'en' ? 'English' : 'Chinese (Mandarin)';
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
