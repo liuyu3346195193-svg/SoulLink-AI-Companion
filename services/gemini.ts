@@ -29,6 +29,13 @@ const getApiKey = (): string => {
     key = (window as any).API_KEY || '';
   }
 
+  // Debug Log (Safe: only shows first 4 chars)
+  if (key) {
+      console.log(`[Gemini Service] API Key found: ${key.substring(0, 4)}...`);
+  } else {
+      console.warn("[Gemini Service] No API Key found in environment variables.");
+  }
+
   return key;
 };
 
@@ -179,8 +186,12 @@ export const generateReply = async (
         image: generatedImage 
     };
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Gemini API Error:", error);
+    // Return a user-friendly error message in the chat bubble
+    if (error.message && error.message.includes('API key not valid')) {
+         return { text: "(System: Invalid API Key. Please check your Vercel Environment Variables.)" };
+    }
     return { text: "(System: Please check your API Key configuration in Vercel settings.)" };
   }
 };
