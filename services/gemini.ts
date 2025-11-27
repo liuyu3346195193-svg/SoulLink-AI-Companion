@@ -28,30 +28,35 @@ const getApiKey = (): string => {
   if (!key && typeof window !== 'undefined') {
     key = (window as any).API_KEY || '';
   }
-
-  // Debug Log (Safe: only shows first 4 chars)
-  if (key) {
-      console.log(`[Gemini Service] API Key found: ${key.substring(0, 4)}...`);
-  } else {
-      console.warn("[Gemini Service] No API Key found in environment variables.");
-  }
-
   return key;
 };
 
 // Lazy Initialization Wrapper
-// This prevents the app from crashing at startup (White Screen) if the Key is missing.
-// The error will only occur when the user actually tries to chat.
 let aiInstance: GoogleGenAI | null = null;
 
 const getAI = () => {
   if (!aiInstance) {
     const key = getApiKey();
-    // Allow empty key initialization to prevent crash, but API calls will fail gracefully later
     aiInstance = new GoogleGenAI({ apiKey: key });
   }
   return aiInstance;
 };
+
+// Helper: Exponential Backoff Retry for 429 Errors
+async function generateContentWithRetry(ai: GoogleGenAI, params: any, retries = 3, delay = 1000): Promise<any> {
+    try {
+        return await ai.models.generateContent(params);
+    } catch (error: any) {
+        const msg = error.message || error.toString();
+        // Check for 429 (Resource Exhausted / Quota Exceeded)
+        if ((msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('quota')) && retries > 0) {
+            console.warn(`[Gemini] Hit rate limit (429). Retrying in ${delay}ms... (${retries} left)`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            return generateContentWithRetry(ai, params, retries - 1, delay * 2);
+        }
+        throw error;
+    }
+}
 
 const IMAGE_TRIGGER_KEYWORDS = [
     'photo', 'picture', 'image', 'selfie', 'view', 'look at', 'see', 'draw', 
@@ -158,7 +163,8 @@ export const generateReply = async (
     
     parts.push({ text: finalPrompt });
 
-    const response = await ai.models.generateContent({
+    // USE RETRY WRAPPER
+    const response = await generateContentWithRetry(ai, {
       model: modelId,
       contents: { role: 'user', parts: parts },
       config: {
@@ -188,13 +194,17 @@ export const generateReply = async (
 
   } catch (error: any) {
     console.error("Gemini API Error:", error);
-    // DEBUG: Show the actual error message to the user
-    const apiKey = getApiKey();
-    const keyStatus = apiKey ? `(Key starts with: ${apiKey.substring(0,4)}...)` : "(No API Key found)";
-    const errorMessage = error.message || error.toString();
+    
+    const msg = error.message || error.toString();
+    if (msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED')) {
+        return { text: "(System: 请求过于频繁，API 配额暂时耗尽。请等待 1 分钟后再试。Rate limit exceeded.)" };
+    }
+    if (msg.includes('API key not valid')) {
+         return { text: "(System: Invalid API Key. Please check Vercel settings.)" };
+    }
     
     return { 
-        text: `(System Error: ${errorMessage}. ${keyStatus})` 
+        text: `(System Error: ${msg})` 
     };
   }
 };
@@ -202,7 +212,7 @@ export const generateReply = async (
 async function analyzeUserPhoto(photoBase64: string): Promise<string> {
     try {
         const ai = getAI();
-        const response = await ai.models.generateContent({
+        const response = await generateContentWithRetry(ai, {
             model: 'gemini-2.5-flash',
             contents: {
                 parts: [
@@ -244,7 +254,7 @@ export const synthesizePhoto = async (
             Ensure the characters look like they are in the same space, interacting naturally.
         `;
 
-        const response = await ai.models.generateContent({
+        const response = await generateContentWithRetry(ai, {
             model: 'gemini-2.5-flash-image',
             contents: { parts: [{ text: prompt }] }
         });
@@ -279,7 +289,7 @@ export const generateProactiveMessage = async (
         if (companion.dimensions.empathy > 70) userContext += " Be warm, express that you missed them.";
         else if (companion.dimensions.rationality > 70) userContext += " Be concise, offer a daily summary or ask if they are busy.";
 
-        const response = await ai.models.generateContent({
+        const response = await generateContentWithRetry(ai, {
             model: 'gemini-2.5-flash',
             contents: {
                 parts: [{ text: `[SYSTEM EVENT: ${userContext}]` }]
@@ -318,7 +328,7 @@ Rules:
 3. Output strictly JSON: { "text_content": "...", "image_prompt": "...", "location": "..." }
     `;
 
-    const response = await ai.models.generateContent({
+    const response = await generateContentWithRetry(ai, {
       model: 'gemini-2.5-flash',
       contents: "Generate a new social media post.",
       config: {
@@ -341,7 +351,7 @@ Rules:
 export const generateImageFromPrompt = async (prompt: string): Promise<string | null> => {
     try {
         const ai = getAI();
-        const response = await ai.models.generateContent({
+        const response = await generateContentWithRetry(ai, {
             model: 'gemini-2.5-flash-image',
             contents: { parts: [{ text: prompt }] }
         });
@@ -380,7 +390,7 @@ export const analyzeConflictState = async (chatHistory: Message[]): Promise<{use
         Output JSON: { "user_negative_score": number, "conflict_level": "Low"|"Medium"|"High" }
         `;
 
-        const response = await ai.models.generateContent({
+        const response = await generateContentWithRetry(ai, {
             model: 'gemini-2.5-flash',
             contents: prompt,
             config: { responseMimeType: "application/json" }
@@ -400,7 +410,7 @@ export const generateMomentComment = async (companion: Companion, momentContent:
     try {
         const ai = getAI();
         const systemPrompt = buildSystemInstruction(companion);
-        const response = await ai.models.generateContent({
+        const response = await generateContentWithRetry(ai, {
             model: 'gemini-2.5-flash',
             contents: { parts: [{ text: `[SYSTEM EVENT: The user posted this on their social feed: "${momentContent}". Write a short, engaging comment.]` }] },
             config: { systemInstruction: systemPrompt }
@@ -418,7 +428,7 @@ export const generateMomentReply = async (companion: Companion, momentContent: s
         // V1.4 A12: Inject Conflict State & Supplementary via buildSystemInstruction
         const systemPrompt = buildSystemInstruction(companion);
 
-        const response = await ai.models.generateContent({
+        const response = await generateContentWithRetry(ai, {
             model: 'gemini-2.5-flash',
             contents: { 
                 parts: [{ 
@@ -445,7 +455,7 @@ export const translateText = async (text: string, targetLang: 'en' | 'zh'): Prom
     try {
         const ai = getAI();
         const target = targetLang === 'en' ? 'English' : 'Chinese (Mandarin)';
-        const response = await ai.models.generateContent({
+        const response = await generateContentWithRetry(ai, {
             model: 'gemini-2.5-flash',
             contents: `Translate the following text to ${target}. Only return the translated text. Text: "${text}"`
         });
