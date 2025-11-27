@@ -35,9 +35,21 @@ import {
 
 // --- Global Variable Access and Initialization ---
 // These variables are provided by the Canvas environment.
-const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+const rawFirebaseConfig = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : undefined;
+
+// --- 增强配置解析的健壮性 (Added Robustness for Config Parsing) ---
+let firebaseConfig = {};
+try {
+  // 尝试清理潜在的前导/尾随空格和换行符，然后解析 JSON
+  const trimmedConfig = rawFirebaseConfig.trim();
+  firebaseConfig = JSON.parse(trimmedConfig);
+} catch (e) {
+  console.error("Failed to parse Firebase Config JSON. Please check the FIREBASE_CONFIG environment variable for leading/trailing whitespace or incorrect format.", e);
+  // 如果解析失败，firebaseConfig 保持为空对象
+}
+// -------------------------------------------------------------------
 
 // Set Firestore logging level to debug for better development visibility
 setLogLevel('debug');
@@ -202,6 +214,13 @@ export const useStore = create<StoreState>((set, get) => ({
    */
   initializeFirebase: async () => {
     if (get().app) return; // Already initialized
+
+    // 检查配置是否为空
+    if (Object.keys(firebaseConfig).length === 0) {
+        console.error("Firebase configuration is missing or invalid. Please check the FIREBASE_CONFIG variable.");
+        set({ isAuthReady: true });
+        return;
+    }
 
     try {
       const app = initializeApp(firebaseConfig);
