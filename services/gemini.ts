@@ -43,11 +43,20 @@ const getAI = () => {
 };
 
 // Helper: Exponential Backoff Retry for 429 Errors
-async function generateContentWithRetry(ai: GoogleGenAI, params: any, retries = 3, delay = 1000): Promise<any> {
+async function generateContentWithRetry(ai: GoogleGenAI, params: any, retries = 2, delay = 2000): Promise<any> {
     try {
         return await ai.models.generateContent(params);
     } catch (error: any) {
-        const msg = error.message || error.toString();
+        let msg = error.message || error.toString();
+        // Try to parse JSON error message if present
+        try {
+             if (msg.trim().startsWith('{')) {
+                 const parsed = JSON.parse(msg);
+                 if (parsed.error && parsed.error.message) msg = parsed.error.message;
+                 if (parsed.message) msg = parsed.message;
+             }
+        } catch(e) {}
+
         // Check for 429 (Resource Exhausted / Quota Exceeded)
         if ((msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('quota')) && retries > 0) {
             console.warn(`[Gemini] Hit rate limit (429). Retrying in ${delay}ms... (${retries} left)`);
@@ -195,16 +204,25 @@ export const generateReply = async (
   } catch (error: any) {
     console.error("Gemini API Error:", error);
     
-    const msg = error.message || error.toString();
-    if (msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED')) {
-        return { text: "(System: 请求过于频繁，API 配额暂时耗尽。请等待 1 分钟后再试。Rate limit exceeded.)" };
+    let msg = error.message || error.toString();
+    // Parse ugly JSON error messages from SDK
+    try {
+         if (msg.trim().startsWith('{')) {
+             const parsed = JSON.parse(msg);
+             if (parsed.error && parsed.error.message) msg = parsed.error.message;
+             else if (parsed.message) msg = parsed.message;
+         }
+    } catch(e) {}
+
+    if (msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('quota')) {
+        return { text: "(System: 免费版 API 额度已用尽。请等待 1 分钟恢复。API Limit Reached - Please wait 1 min.)" };
     }
     if (msg.includes('API key not valid')) {
          return { text: "(System: Invalid API Key. Please check Vercel settings.)" };
     }
     
     return { 
-        text: `(System Error: ${msg})` 
+        text: `(System Error: ${msg.substring(0, 100)}...)` 
     };
   }
 };
