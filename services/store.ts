@@ -1,16 +1,5 @@
-import { initializeApp } from 'firebase/app';
-import { 
-  getFirestore, collection, doc, setDoc, updateDoc, onSnapshot, 
-  query, orderBy, arrayUnion, getDoc, writeBatch 
-} from 'firebase/firestore';
-import { getAuth, signInWithCustomToken } from 'firebase/auth';
 import { Companion, Moment, Message, UserIdentity, ChatSettings, AlbumPhoto } from '../types';
 import { generateProactiveMessage, generateMomentComment, analyzeConflictState, generateMomentReply } from './gemini';
-
-// --- Environment Globals (Treated as optional for safety) ---
-declare const __app_id: string | undefined;
-declare const __firebase_config: any | undefined;
-declare const __initial_auth_token: string | undefined;
 
 // --- Initial Constants (Used for seeding DB or Offline Mode) ---
 const DEFAULT_USER_IDENTITY: UserIdentity = {
@@ -111,36 +100,13 @@ class Store {
   userProfile: UserIdentity = DEFAULT_USER_IDENTITY;
   
   private userId: string = 'guest';
-  private firestore: any = null;
-  private isFirebaseEnabled: boolean = false;
 
   constructor() {
     this.init();
   }
 
   async init() {
-    // Check if we are in an environment with Firebase config injected
-    if (typeof __firebase_config !== 'undefined' && typeof __initial_auth_token !== 'undefined') {
-        try {
-            console.log("Initializing Firebase...");
-            const app = initializeApp(__firebase_config);
-            const auth = getAuth(app);
-            this.firestore = getFirestore(app);
-            
-            const userCredential = await signInWithCustomToken(auth, __initial_auth_token);
-            this.userId = userCredential.user.uid;
-            this.isFirebaseEnabled = true;
-            console.log('🔥 Firebase Auth Success. User:', this.userId);
-            this.setupListeners();
-            return;
-        } catch (error) {
-            console.error('🔥 Firebase Init Failed (Falling back to offline mode):', error);
-        }
-    } else {
-        console.warn("⚠️ No Firebase config found. Running in Offline Demo Mode.");
-    }
-    
-    // Fallback: Seed local data if Firebase failed or is missing
+    console.log("Initializing Store (Offline Mode)...");
     this.seedLocalData();
   }
 
@@ -150,48 +116,6 @@ class Store {
       this.userProfile = { ...DEFAULT_USER_IDENTITY };
   }
 
-  private setupListeners() {
-    if (!this.firestore) return;
-
-    // 1. Listen to User Profile
-    const profileRef = doc(this.firestore, 'users', this.userId, 'profile', 'me');
-    onSnapshot(profileRef, (docSnap) => {
-        if (docSnap.exists()) {
-            this.userProfile = docSnap.data() as UserIdentity;
-        } else {
-            setDoc(profileRef, DEFAULT_USER_IDENTITY);
-            this.userProfile = DEFAULT_USER_IDENTITY;
-        }
-    });
-
-    // 2. Listen to Companions
-    const companionsRef = collection(this.firestore, 'users', this.userId, 'companions');
-    onSnapshot(companionsRef, (snapshot) => {
-        if (snapshot.empty && this.companions.length === 0) {
-            console.log('Seeding initial companions to Firestore...');
-            INITIAL_COMPANIONS.forEach(c => {
-                setDoc(doc(companionsRef, c.id), c);
-            });
-        } else if (!snapshot.empty) {
-            this.companions = snapshot.docs.map(d => d.data() as Companion);
-        }
-    });
-
-    // 3. Listen to Moments
-    const momentsRef = collection(this.firestore, 'users', this.userId, 'moments');
-    const q = query(momentsRef, orderBy('timestamp', 'desc'));
-    onSnapshot(q, (snapshot) => {
-        if (snapshot.empty && this.moments.length === 0) {
-            console.log('Seeding initial moments to Firestore...');
-            INITIAL_MOMENTS.forEach(m => {
-                setDoc(doc(momentsRef, m.id), m);
-            });
-        } else if (!snapshot.empty) {
-            this.moments = snapshot.docs.map(d => d.data() as Moment);
-        }
-    });
-  }
-
   // --- Public API ---
 
   getCompanions() { return this.companions; }
@@ -199,34 +123,18 @@ class Store {
   getMoments() { return this.moments; }
   getUserProfile() { return this.userProfile; }
 
-  // --- Async Write Operations (Hybrid) ---
+  // --- Async Write Operations (Local Only) ---
 
   async updateCompanion(updated: Companion) { 
-      // Optimistic local update
       this.companions = this.companions.map(c => c.id === updated.id ? updated : c);
-      
-      if (this.isFirebaseEnabled) {
-          const ref = doc(this.firestore, 'users', this.userId, 'companions', updated.id);
-          await setDoc(ref, updated, { merge: true });
-      }
   }
 
   async addCompanion(newCompanion: Companion) { 
       this.companions = [...this.companions, newCompanion];
-      
-      if (this.isFirebaseEnabled) {
-          const ref = doc(this.firestore, 'users', this.userId, 'companions', newCompanion.id);
-          await setDoc(ref, newCompanion);
-      }
   }
 
   async updateUserProfile(profile: UserIdentity) { 
       this.userProfile = profile; 
-      
-      if (this.isFirebaseEnabled) {
-          const ref = doc(this.firestore, 'users', this.userId, 'profile', 'me');
-          await setDoc(ref, profile);
-      }
   }
 
   async addMessage(companionId: string, message: Message) {
@@ -236,11 +144,6 @@ class Store {
       const updatedHistory = [...companion.chatHistory, message];
       const updatedCompanion = { ...companion, chatHistory: updatedHistory };
       this.companions = this.companions.map(c => c.id === companionId ? updatedCompanion : c);
-
-      if (this.isFirebaseEnabled) {
-          const ref = doc(this.firestore, 'users', this.userId, 'companions', companionId);
-          updateDoc(ref, { chatHistory: arrayUnion(message) }); 
-      }
       
       if (message.role === 'user') {
           this.updateConflictState(companionId);
@@ -276,11 +179,6 @@ class Store {
   async addMoment(moment: Moment) {
     this.moments = [moment, ...this.moments];
     
-    if (this.isFirebaseEnabled) {
-        const ref = doc(this.firestore, 'users', this.userId, 'moments', moment.id);
-        await setDoc(ref, moment);
-    }
-    
     if (moment.authorRole === 'user') {
         const companions = this.getCompanions();
         const reactor = companions[Math.floor(Math.random() * companions.length)];
@@ -294,11 +192,6 @@ class Store {
                 if (currentMoment) {
                     currentMoment.comments.push(newComment);
                 }
-
-                if (this.isFirebaseEnabled) {
-                     const ref = doc(this.firestore, 'users', this.userId, 'moments', moment.id);
-                     await updateDoc(ref, { comments: arrayUnion(newComment) });
-                }
             }, 5000);
         }
     }
@@ -311,11 +204,6 @@ class Store {
       const localMoment = this.moments.find(m => m.id === momentId);
       if(localMoment) localMoment.comments.push(userCommentObj);
 
-      if (this.isFirebaseEnabled) {
-          const momentRef = doc(this.firestore, 'users', this.userId, 'moments', momentId);
-          await updateDoc(momentRef, { comments: arrayUnion(userCommentObj) });
-      }
-
       if (localMoment && localMoment.authorRole === 'model' && localMoment.companionId) {
           const companion = this.getCompanion(localMoment.companionId);
           if (companion && !companion.conflictState.isActive) {
@@ -323,12 +211,8 @@ class Store {
                     const replyText = await generateMomentReply(companion, localMoment.content, comment);
                     const aiReplyObj = { role: 'model' as const, name: companion.remark || companion.name, content: replyText };
                     
-                    if(localMoment) localMoment.comments.push(aiReplyObj);
-
-                    if (this.isFirebaseEnabled) {
-                        const momentRef = doc(this.firestore, 'users', this.userId, 'moments', momentId);
-                        await updateDoc(momentRef, { comments: arrayUnion(aiReplyObj) });
-                    }
+                    const m = this.moments.find(m => m.id === momentId);
+                    if(m) m.comments.push(aiReplyObj);
                }, 3000);
           }
       }
@@ -357,11 +241,6 @@ class Store {
       
       moment.likes = newLikes;
       moment.isLiked = newIsLiked;
-
-      if (this.isFirebaseEnabled) {
-          const momentRef = doc(this.firestore, 'users', this.userId, 'moments', momentId);
-          await updateDoc(momentRef, { likes: newLikes, isLiked: newIsLiked });
-      }
   }
 
   async toggleMemoryAnchor(companionId: string, messageId: string) {
@@ -395,14 +274,11 @@ class Store {
   }
 
   async checkProactiveMessaging() {
-      // Simple offline check or online check
+      // Simple offline check
       if (this.companions.length === 0) {
           setTimeout(() => this.checkProactiveMessaging(), 2000);
           return;
       }
-      // (Logic remains same, operates on local this.companions cache)
-      // For brevity, skipping full re-implementation here as it operates on 'this.companions' which is already up to date.
-      // But adding one check to trigger sync if enabled
       const now = Date.now();
       const TWELVE_HOURS = 12 * 60 * 60 * 1000;
       
@@ -412,8 +288,7 @@ class Store {
           if (!lastMsg) continue;
           
           if ((now - lastMsg.timestamp) > TWELVE_HOURS) {
-             // Logic for proactive poke...
-             // Simplified for this hybrid store implementation
+             // Logic for proactive poke would trigger here if extended
           }
       }
   }
@@ -423,11 +298,6 @@ class Store {
       if (companion) {
           const newAlbum = [photo, ...companion.album];
           companion.album = newAlbum; 
-          
-          if (this.isFirebaseEnabled) {
-             const ref = doc(this.firestore, 'users', this.userId, 'companions', companionId);
-             await updateDoc(ref, { album: newAlbum });
-          }
       }
   }
 

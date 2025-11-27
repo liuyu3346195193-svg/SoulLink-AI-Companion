@@ -30,6 +30,24 @@
         background: #cbd5e1; /* visible on hover */
       }
     </style>
+    <!-- Polyfill for Global Variables to prevent Runtime Crashes on Vercel -->
+    <script>
+      // 1. Polyfill process.env for Gemini SDK
+      if (typeof window.process === 'undefined') {
+        window.process = { env: { API_KEY: '' } };
+      }
+      
+      // 2. Polyfill Firebase Config Globals (default to undefined to trigger offline mode)
+      if (typeof window.__firebase_config === 'undefined') {
+        window.__firebase_config = undefined;
+      }
+      if (typeof window.__initial_auth_token === 'undefined') {
+        window.__initial_auth_token = undefined;
+      }
+      if (typeof window.__app_id === 'undefined') {
+        window.__app_id = undefined;
+      }
+    </script>
   <script type="importmap">
 {
   "imports": {

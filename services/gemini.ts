@@ -1,7 +1,16 @@
 import { GoogleGenAI, SchemaType } from "@google/genai";
 import { Companion, Message } from '../types';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+// Safe access to API Key to prevent "process is not defined" error in browsers
+const getApiKey = () => {
+  try {
+    return process.env.API_KEY || '';
+  } catch (e) {
+    return '';
+  }
+};
+
+const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
 const IMAGE_TRIGGER_KEYWORDS = [
     'photo', 'picture', 'image', 'selfie', 'view', 'look at', 'see', 'draw', 
