@@ -1,22 +1,35 @@
 import { GoogleGenAI, SchemaType } from "@google/genai";
 import { Companion, Message } from '../types';
 
-// 真正安全的访问 API Key 的函数
-const getApiKey = () => {
-  // 1. 优先使用Vite/现代前端框架的导入元对象 (import.meta) 来安全获取环境变量
-  //    注意：你需要确保在 Vercel 中设置的变量名是 VITE_前缀的，例如 VITE_API_KEY
-  if (typeof import.meta !== 'undefined' && import.meta.env.VITE_API_KEY) {
-    return import.meta.env.VITE_API_KEY;
+// Robust API Key extraction for Vercel & various build tools
+const getApiKey = (): string => {
+  let key = '';
+
+  // 1. Try Vite (standard for modern React apps)
+  // @ts-ignore
+  if (typeof import.meta !== 'undefined' && import.meta.env) {
+    // @ts-ignore
+    key = import.meta.env.VITE_API_KEY || import.meta.env.API_KEY || '';
   }
-  
-  // 2. 备用：如果代码可能在Node.js（如Serverless Function）中运行，则检查 process.env
-  //    但需要先检查 'process' 是否存在，防止前端报错
-  if (typeof process !== 'undefined' && process.env.API_KEY) {
-    return process.env.API_KEY;
+
+  // 2. Try Standard process.env (Next.js / CRA / Node)
+  if (!key) {
+    try {
+      key = process.env.API_KEY || 
+            process.env.REACT_APP_API_KEY || 
+            process.env.NEXT_PUBLIC_API_KEY || 
+            '';
+    } catch (e) {
+      // process is not defined
+    }
   }
-  
-  // 3. 都没有找到，返回空
-  return '';
+
+  // 3. Last resort: Check global window object (if manually injected)
+  if (!key && typeof window !== 'undefined') {
+    key = (window as any).API_KEY || '';
+  }
+
+  return key;
 };
 
 const ai = new GoogleGenAI({ apiKey: getApiKey() });
@@ -155,7 +168,7 @@ export const generateReply = async (
 
   } catch (error) {
     console.error("Gemini API Error:", error);
-    return { text: "(Connection lost...)" };
+    return { text: "(API Key Missing or Network Error)" };
   }
 };
 
