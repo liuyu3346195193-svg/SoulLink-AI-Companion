@@ -1,13 +1,22 @@
 import { GoogleGenAI, SchemaType } from "@google/genai";
 import { Companion, Message } from '../types';
 
-// Safe access to API Key to prevent "process is not defined" error in browsers
+// 真正安全的访问 API Key 的函数
 const getApiKey = () => {
-  try {
-    return process.env.API_KEY || '';
-  } catch (e) {
-    return '';
+  // 1. 优先使用Vite/现代前端框架的导入元对象 (import.meta) 来安全获取环境变量
+  //    注意：你需要确保在 Vercel 中设置的变量名是 VITE_前缀的，例如 VITE_API_KEY
+  if (typeof import.meta !== 'undefined' && import.meta.env.VITE_API_KEY) {
+    return import.meta.env.VITE_API_KEY;
   }
+  
+  // 2. 备用：如果代码可能在Node.js（如Serverless Function）中运行，则检查 process.env
+  //    但需要先检查 'process' 是否存在，防止前端报错
+  if (typeof process !== 'undefined' && process.env.API_KEY) {
+    return process.env.API_KEY;
+  }
+  
+  // 3. 都没有找到，返回空
+  return '';
 };
 
 const ai = new GoogleGenAI({ apiKey: getApiKey() });
