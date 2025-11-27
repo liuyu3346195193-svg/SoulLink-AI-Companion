@@ -100,6 +100,8 @@ class Store {
   userProfile: UserIdentity = DEFAULT_USER_IDENTITY;
   
   private userId: string = 'guest';
+  // Optimization: Track message count to throttle expensive API calls
+  private messageCounter: number = 0;
 
   constructor() {
     this.init();
@@ -145,7 +147,11 @@ class Store {
       const updatedCompanion = { ...companion, chatHistory: updatedHistory };
       this.companions = this.companions.map(c => c.id === companionId ? updatedCompanion : c);
       
-      if (message.role === 'user') {
+      this.messageCounter++;
+      
+      // OPTIMIZATION: Only run conflict analysis every 5 messages to save API Quota
+      // Previously this ran on every message, causing 429 errors.
+      if (message.role === 'user' && this.messageCounter % 5 === 0) {
           this.updateConflictState(companionId);
       }
     }
