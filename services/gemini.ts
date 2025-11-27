@@ -188,11 +188,14 @@ export const generateReply = async (
 
   } catch (error: any) {
     console.error("Gemini API Error:", error);
-    // Return a user-friendly error message in the chat bubble
-    if (error.message && error.message.includes('API key not valid')) {
-         return { text: "(System: Invalid API Key. Please check your Vercel Environment Variables.)" };
-    }
-    return { text: "(System: Please check your API Key configuration in Vercel settings.)" };
+    // DEBUG: Show the actual error message to the user
+    const apiKey = getApiKey();
+    const keyStatus = apiKey ? `(Key starts with: ${apiKey.substring(0,4)}...)` : "(No API Key found)";
+    const errorMessage = error.message || error.toString();
+    
+    return { 
+        text: `(System Error: ${errorMessage}. ${keyStatus})` 
+    };
   }
 };
 
