@@ -149,9 +149,8 @@ class Store {
       
       this.messageCounter++;
       
-      // OPTIMIZATION: Only run conflict analysis every 5 messages to save API Quota
-      // Previously this ran on every message, causing 429 errors.
-      if (message.role === 'user' && this.messageCounter % 5 === 0) {
+      // OPTIMIZATION: Only run conflict analysis every 5 messages, AND skip the very first one after reload (counter > 1)
+      if (message.role === 'user' && this.messageCounter > 1 && this.messageCounter % 5 === 0) {
           this.updateConflictState(companionId);
       }
     }
