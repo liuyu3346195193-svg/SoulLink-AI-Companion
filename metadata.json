@@ -1,0 +1,8 @@
+{
+  "name": "SoulLink AI",
+  "description": "A next-generation AI companion platform featuring dynamic persona modeling, multimodal interaction, and immersive social elements.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
