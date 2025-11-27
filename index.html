@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>SoulLink AI</title>
+    <!-- Tailwind CSS CDN (Keep for styling) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       body {
@@ -12,9 +13,10 @@
         justify-content: center;
         align-items: center;
         min-height: 100vh;
+        margin: 0;
       }
       
-      /* B13: Scrollbar Optimization */
+      /* Scrollbar Optimization */
       ::-webkit-scrollbar {
         width: 4px;
         height: 4px;
@@ -30,42 +32,25 @@
         background: #cbd5e1; /* visible on hover */
       }
     </style>
-    <!-- Polyfill for Global Variables to prevent Runtime Crashes on Vercel -->
-    <script>
-      // 1. Polyfill process.env for Gemini SDK
-      if (typeof window.process === 'undefined') {
-        window.process = { env: { API_KEY: '' } };
-      }
-      
-      // 2. Polyfill Firebase Config Globals (default to undefined to trigger offline mode)
-      if (typeof window.__firebase_config === 'undefined') {
-        window.__firebase_config = undefined;
-      }
-      if (typeof window.__initial_auth_token === 'undefined') {
-        window.__initial_auth_token = undefined;
-      }
-      if (typeof window.__app_id === 'undefined') {
-        window.__app_id = undefined;
-      }
-    </script>
   <script type="importmap">
 {
   "imports": {
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
     "react": "https://aistudiocdn.com/react@^19.2.0",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
     "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "recharts": "https://aistudiocdn.com/recharts@^3.5.0",
     "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
     "react-markdown": "https://aistudiocdn.com/react-markdown@^10.1.0",
-    "recharts": "https://aistudiocdn.com/recharts@^3.5.0",
-    "firebase/": "https://aistudiocdn.com/firebase@^12.6.0/"
+    "vite": "https://aistudiocdn.com/vite@^7.2.4",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1"
   }
 }
 </script>
 </head>
   <body>
     <div id="root" class="w-full h-full"></div>
-    <!-- CRITICAL FIX: Load the entry point -->
-    <script type="module" src="./index.tsx"></script>
+    <!-- Vite Entry Point -->
+    <script type="module" src="/index.tsx"></script>
   </body>
 </html>

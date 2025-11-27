@@ -1,4 +1,4 @@
-import { GoogleGenAI, SchemaType } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import { Companion, Message } from '../types';
 
 // Robust API Key extraction for Vercel & various build tools
@@ -12,7 +12,7 @@ const getApiKey = (): string => {
     key = import.meta.env.VITE_API_KEY || import.meta.env.API_KEY || '';
   }
 
-  // 2. Try Standard process.env (Next.js / CRA / Node)
+  // 2. Try Standard process.env (Next.js / CRA / Node) - Polyfilled by Vite config
   if (!key) {
     try {
       key = process.env.API_KEY || 
