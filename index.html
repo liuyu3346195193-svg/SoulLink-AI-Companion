@@ -4,34 +4,28 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>SoulLink AI</title>
-    <!-- Tailwind CSS CDN (Keep for styling) -->
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       body {
-        background-color: #f3f4f6; /* Gray-100 */
+        background-color: #f3f4f6;
         display: flex;
         justify-content: center;
         align-items: center;
         min-height: 100vh;
         margin: 0;
       }
-      
-      /* Scrollbar Optimization */
-      ::-webkit-scrollbar {
-        width: 4px;
-        height: 4px;
-      }
-      ::-webkit-scrollbar-track {
-        background: transparent; 
-      }
-      ::-webkit-scrollbar-thumb {
-        background: transparent; 
-        border-radius: 4px;
-      }
-      *:hover::-webkit-scrollbar-thumb {
-        background: #cbd5e1; /* visible on hover */
-      }
+      #root { width: 100%; height: 100%; }
+      /* Scrollbar Styling */
+      ::-webkit-scrollbar { width: 4px; height: 4px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: transparent; border-radius: 4px; }
+      *:hover::-webkit-scrollbar-thumb { background: #cbd5e1; }
     </style>
+    <script>
+      // Global Polyfill to prevent crashes in libraries accessing process.env
+      window.process = window.process || { env: { API_KEY: '' } };
+    </script>
   <script type="importmap">
 {
   "imports": {
@@ -49,8 +43,7 @@
 </script>
 </head>
   <body>
-    <div id="root" class="w-full h-full"></div>
-    <!-- Vite Entry Point -->
+    <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>
