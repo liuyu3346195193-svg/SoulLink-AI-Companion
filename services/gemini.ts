@@ -43,7 +43,8 @@ const getAI = () => {
 };
 
 // Helper: Exponential Backoff Retry for 429 Errors
-async function generateContentWithRetry(ai: GoogleGenAI, params: any, retries = 2, delay = 2000): Promise<any> {
+// Increased start delay to 4000ms to allow quota to reset
+async function generateContentWithRetry(ai: GoogleGenAI, params: any, retries = 2, delay = 4000): Promise<any> {
     try {
         return await ai.models.generateContent(params);
     } catch (error: any) {
