@@ -1,3 +1,4 @@
+
 export type PersonaDimensions = {
   empathy: number; // 共情度
   rationality: number; // 理性度
@@ -173,6 +174,10 @@ export const DICT = {
         reply: "Reply",
         argumentWarning: "Conflict State Active",
         auxiliary: "Auxiliary Descriptions",
+        responseLength: "Response Length",
+        len_short: "Short",
+        len_medium: "Medium",
+        len_long: "Long",
         
         // Dimensions
         dim_empathy: "Empathy",
@@ -228,6 +233,10 @@ export const DICT = {
         reply: "回复",
         argumentWarning: "冲突状态生效中",
         auxiliary: "辅助描写",
+        responseLength: "回复长度",
+        len_short: "简短",
+        len_medium: "适中",
+        len_long: "详细",
         
         // Dimensions
         dim_empathy: "共情度",
@@ -237,3 +246,4 @@ export const DICT = {
         dim_creativity: "创造力"
     }
 };
+    

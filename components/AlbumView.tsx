@@ -1,5 +1,6 @@
+
 import React, { useState, useRef } from 'react';
-import { Upload, Wand2, Trash2, X, AlertCircle, Download } from 'lucide-react';
+import { Upload, Wand2, Trash2, X, AlertCircle, Download, ImageOff } from 'lucide-react';
 import { Companion, AlbumPhoto, DICT, InterfaceLanguage } from '../types';
 import { db } from '../services/store';
 import { synthesizePhoto } from '../services/gemini';
@@ -15,6 +16,7 @@ const AlbumView: React.FC<Props> = ({ companionId, lang, onBack }) => {
     const [selectedPhoto, setSelectedPhoto] = useState<AlbumPhoto | null>(null);
     const [isSynthesizing, setIsSynthesizing] = useState(false);
     const [statusText, setStatusText] = useState("");
+    const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
     
     // V1.2.1 C4-3: Scene Input
     const [scene, setScene] = useState("");
@@ -111,11 +113,15 @@ const AlbumView: React.FC<Props> = ({ companionId, lang, onBack }) => {
         reader.readAsDataURL(file);
     };
 
+    const handleImageError = (id: string) => {
+        setFailedImages(prev => new Set(prev).add(id));
+    };
+
     if (!companion) return null;
 
     return (
         <div className="flex flex-col h-full bg-white relative">
-            <div className="p-4 border-b flex justify-between items-center sticky top-0 bg-white z-10">
+            <div className="p-4 border-b flex justify-between items-center sticky top-0 bg-white z-10 shadow-sm">
                 <h2 className="text-xl font-bold text-gray-800">{labels.album}</h2>
                 <button onClick={onBack} className="text-gray-500 hover:text-gray-800"><X /></button>
             </div>
@@ -139,26 +145,43 @@ const AlbumView: React.FC<Props> = ({ companionId, lang, onBack }) => {
                 </div>
 
                 <div className="grid grid-cols-3 gap-2">
-                    {companion.album.map(photo => (
-                        <div key={photo.id} onClick={() => setSelectedPhoto(photo)} className="aspect-square relative group cursor-pointer overflow-hidden rounded-lg bg-gray-100">
-                            <img src={photo.url} className="w-full h-full object-cover transition-transform group-hover:scale-110" alt="album" />
-                            {photo.type === 'synthesized' && (
-                                <div className="absolute top-1 right-1 bg-indigo-500/80 p-1 rounded-full text-white">
-                                    <Wand2 size={10} />
-                                </div>
-                            )}
-                            {photo.type === 'avatar_history' && (
-                                <div className="absolute top-1 left-1 bg-black/50 p-1 rounded-full text-white text-[8px] uppercase px-2">
-                                    History
-                                </div>
-                            )}
-                        </div>
-                    ))}
+                    {companion.album.map(photo => {
+                        const isFailed = failedImages.has(photo.id);
+                        return (
+                            <div key={photo.id} onClick={() => !isFailed && setSelectedPhoto(photo)} className="aspect-square relative group cursor-pointer overflow-hidden rounded-lg bg-gray-100 border border-gray-200">
+                                {isFailed ? (
+                                    <div className="w-full h-full flex flex-col items-center justify-center text-gray-400">
+                                        <ImageOff size={24} />
+                                        <span className="text-[10px] mt-1">Error</span>
+                                    </div>
+                                ) : (
+                                    <img 
+                                        src={photo.url} 
+                                        className="w-full h-full object-cover transition-transform group-hover:scale-110" 
+                                        alt={photo.description}
+                                        onError={() => handleImageError(photo.id)}
+                                        referrerPolicy="no-referrer"
+                                    />
+                                )}
+                                
+                                {photo.type === 'synthesized' && (
+                                    <div className="absolute top-1 right-1 bg-indigo-500/80 p-1 rounded-full text-white">
+                                        <Wand2 size={10} />
+                                    </div>
+                                )}
+                                {photo.type === 'avatar_history' && (
+                                    <div className="absolute top-1 left-1 bg-black/50 p-1 rounded-full text-white text-[8px] uppercase px-2">
+                                        History
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
 
             {showSceneInput && (
-                <div className="absolute inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                <div className="absolute inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-in fade-in">
                     <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
                         <h3 className="text-lg font-bold mb-2">Imagine the Scene</h3>
                         <p className="text-sm text-gray-500 mb-4">Describe the setting or activity.</p>
@@ -166,7 +189,7 @@ const AlbumView: React.FC<Props> = ({ companionId, lang, onBack }) => {
                             value={scene}
                             onChange={(e) => setScene(e.target.value)}
                             placeholder="e.g. Drinking coffee..."
-                            className="w-full border rounded-lg p-3 text-sm h-24 mb-4 focus:ring-2 focus:ring-indigo-500 outline-none"
+                            className="w-full border rounded-lg p-3 text-sm h-24 mb-4 focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
                         />
                         <div className="flex gap-2">
                              <button onClick={() => setShowSceneInput(false)} className="flex-1 py-2 bg-gray-100 rounded-lg text-gray-700 font-medium">{labels.cancel}</button>
@@ -177,21 +200,30 @@ const AlbumView: React.FC<Props> = ({ companionId, lang, onBack }) => {
             )}
 
             {selectedPhoto && (
-                <div className="absolute inset-0 z-50 bg-black/95 flex flex-col justify-center items-center p-4">
+                <div className="absolute inset-0 z-50 bg-black/95 flex flex-col justify-center items-center p-4 animate-in fade-in">
                     <div className="absolute top-4 right-4 flex gap-4">
-                         <button onClick={() => handleDownload(selectedPhoto.url)} className="text-white/70 hover:text-indigo-400" title={labels.download}><Download /></button>
-                         <button onClick={() => handleDelete(selectedPhoto.id)} className="text-white/70 hover:text-red-500"><Trash2 /></button>
-                         <button onClick={() => setSelectedPhoto(null)} className="text-white/70 hover:text-white"><X /></button>
-                    </div>
-                    <img src={selectedPhoto.url} className="max-w-full max-h-[80vh] rounded-lg shadow-2xl" alt="detail" />
-                    <div className="mt-4 text-center">
-                        <p className="text-white/80 text-sm">{selectedPhoto.description}</p>
-                        <p className="text-white/40 text-xs mt-1">{new Date(selectedPhoto.timestamp).toLocaleDateString()}</p>
+                         <button onClick={() => handleDownload(selectedPhoto.url)} className="text-white/70 hover:text-indigo-400 p-2" title={labels.download}><Download size={24} /></button>
+                         <button onClick={() => handleDelete(selectedPhoto.id)} className="text-white/70 hover:text-red-500 p-2"><Trash2 size={24} /></button>
+                         <button onClick={() => setSelectedPhoto(null)} className="text-white/70 hover:text-white p-2"><X size={24} /></button>
                     </div>
                     
-                    <div className="mt-8 flex gap-2">
-                        <button onClick={() => handleDelete(selectedPhoto.id, "Not my style")} className="px-3 py-1 bg-white/10 rounded-full text-xs text-white/60 hover:bg-white/20">Don't like style</button>
-                        <button onClick={() => handleDelete(selectedPhoto.id, "Bad quality")} className="px-3 py-1 bg-white/10 rounded-full text-xs text-white/60 hover:bg-white/20">Bad quality</button>
+                    <div className="relative w-full max-w-lg max-h-[75vh] flex items-center justify-center">
+                         <img 
+                            src={selectedPhoto.url} 
+                            className="max-w-full max-h-[75vh] rounded-lg shadow-2xl object-contain" 
+                            alt="detail" 
+                            referrerPolicy="no-referrer"
+                         />
+                    </div>
+
+                    <div className="mt-6 text-center w-full px-4">
+                        <p className="text-white/90 text-sm font-medium line-clamp-2">{selectedPhoto.description}</p>
+                        <p className="text-white/50 text-xs mt-1">{new Date(selectedPhoto.timestamp).toLocaleDateString()} • {new Date(selectedPhoto.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</p>
+                    </div>
+                    
+                    <div className="mt-6 flex gap-3">
+                        <button onClick={() => handleDelete(selectedPhoto.id, "Not my style")} className="px-4 py-1.5 bg-white/10 border border-white/10 rounded-full text-xs text-white/80 hover:bg-white/20 transition">Don't like style</button>
+                        <button onClick={() => handleDelete(selectedPhoto.id, "Bad quality")} className="px-4 py-1.5 bg-white/10 border border-white/10 rounded-full text-xs text-white/80 hover:bg-white/20 transition">Bad quality</button>
                     </div>
                 </div>
             )}

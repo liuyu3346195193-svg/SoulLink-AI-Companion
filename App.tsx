@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Users, MessageCircle, Aperture, Settings, Heart, Send, Sliders, PlayCircle, ArrowLeft, PlusCircle, Check, Image as ImageIcon, Globe, User, Edit, Languages } from 'lucide-react';
 import { db } from './services/store';
@@ -233,7 +234,7 @@ const MomentsView: React.FC<{lang: InterfaceLanguage}> = ({lang}) => {
             };
             
             db.addMoment(newMoment);
-            setMoments(db.getMoments());
+            setMoments([...db.getMoments()]); // Use spread to force update
         }
     }
     setGenerating(false);
@@ -252,12 +253,15 @@ const MomentsView: React.FC<{lang: InterfaceLanguage}> = ({lang}) => {
       db.addMoment(newMoment);
       setUserPostContent('');
       setShowPostInput(false);
-      setMoments(db.getMoments());
+      setMoments([...db.getMoments()]); // Use spread to force update
   };
 
-  const handleLike = (id: string) => {
-      db.likeMoment(id);
-      setMoments(db.getMoments());
+  const handleLike = async (e: React.MouseEvent, id: string) => {
+      e.stopPropagation(); // Prevent container clicks
+      await db.likeMoment(id);
+      // CRITICAL FIX: Use spread operator [...array] to create a NEW reference.
+      // This forces React to perceive the change and re-render the heart icon immediately.
+      setMoments([...db.getMoments()]);
   };
 
   // V1.4 A12: Handle User Comment
@@ -266,7 +270,7 @@ const MomentsView: React.FC<{lang: InterfaceLanguage}> = ({lang}) => {
       db.addComment(momentId, commentInput);
       setCommentInput('');
       setActiveCommentId(null);
-      setMoments(db.getMoments());
+      setMoments([...db.getMoments()]);
   };
 
   // V1.4 A11: Translate
@@ -352,7 +356,7 @@ const MomentsView: React.FC<{lang: InterfaceLanguage}> = ({lang}) => {
                   <div className="flex space-x-4 items-center">
                       {/* V1.4 B15: Heart Animation */}
                       <button 
-                        onClick={() => handleLike(m.id)} 
+                        onClick={(e) => handleLike(e, m.id)} 
                         className="flex items-center text-gray-500 hover:text-pink-500 space-x-1 group active:scale-125 transition-transform"
                       >
                           <Heart 
@@ -410,7 +414,7 @@ const MomentsView: React.FC<{lang: InterfaceLanguage}> = ({lang}) => {
 const App: React.FC = () => {
   const [view, setView] = useState<ViewState>(ViewState.CONTACTS);
   const [activeCompanionId, setActiveCompanionId] = useState<string | null>(null);
-  const [lang, setLang] = useState<InterfaceLanguage>('en');
+  const [lang, setLang] = useState<InterfaceLanguage>('zh'); // Default to Chinese
 
   useEffect(() => {
       db.checkProactiveMessaging();
@@ -473,3 +477,4 @@ const App: React.FC = () => {
 };
 
 export default App;
+    

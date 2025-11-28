@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Image as ImageIcon, Mic, MoreVertical, Anchor, ArrowLeft, RefreshCw, Edit2, Plus, Smile, Video, Phone, X, Search, Check, Save, Languages, Brain, Trash2, Settings } from 'lucide-react';
 import { Companion, Message, ChatSettings, UserIdentity, InterfaceLanguage, DICT, AlbumPhoto } from '../types';
@@ -108,14 +109,16 @@ const ChatScreen: React.FC<Props> = ({ companionId, onBack, onOpenProfile, onOpe
       const userMsgIndex = companion.chatHistory.length - 2;
       const userMsg = userMsgIndex >= 0 ? companion.chatHistory[userMsgIndex] : null;
 
-      if (!userMsg) return;
+      // Handle cases where there is no preceding user message (e.g., initial greeting)
+      const contentToRegen = userMsg ? userMsg.content : "(Self Introduction)";
+      const imageToRegen = userMsg?.image?.split(',')[1];
 
       const historyWithoutLast = companion.chatHistory.slice(0, -1);
       db.setChatHistory(companionId, historyWithoutLast);
       setCompanion({ ...companion, chatHistory: historyWithoutLast });
       
       setIsTyping(true);
-      const replyData = await generateReply(companion, userMsg.content, userMsg.image?.split(',')[1]);
+      const replyData = await generateReply(companion, contentToRegen, imageToRegen);
        
       if (replyData.image) {
         const autoPhoto: AlbumPhoto = {
@@ -385,3 +388,4 @@ const ChatScreen: React.FC<Props> = ({ companionId, onBack, onOpenProfile, onOpe
 };
 
 export default ChatScreen;
+    

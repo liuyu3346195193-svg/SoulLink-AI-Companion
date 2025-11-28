@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Save, Brain, Trash2, Edit2, User, BookOpen, ChevronDown, ChevronRight, Plus, X, Check, Smile, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Save, Brain, Trash2, Edit2, User, BookOpen, ChevronDown, ChevronRight, Plus, X, Check, Smile, Image as ImageIcon, MessageSquare } from 'lucide-react';
 import { Companion, InterfaceLanguage, DICT, UserIdentity, ChatSettings, Memory } from '../types';
 import { db } from '../services/store';
 
@@ -153,6 +154,28 @@ const ChatSettingsView: React.FC<Props> = ({ companionId, lang, onBack, onOpenPr
                                     onChange={(e) => setTempRemark(e.target.value)} 
                                 />
                             </div>
+                            
+                            {/* Response Length Selector */}
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2">{labels.responseLength}</label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {(['short', 'medium', 'long'] as const).map((len) => (
+                                        <button
+                                            key={len}
+                                            onClick={() => setChatSettings({...chatSettings, responseLength: len})}
+                                            className={`py-2 text-xs font-bold rounded-lg border transition-all 
+                                                ${chatSettings.responseLength === len 
+                                                    ? 'bg-indigo-50 border-indigo-200 text-indigo-600 shadow-sm ring-1 ring-indigo-200' 
+                                                    : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+                                        >
+                                            {len === 'short' && labels.len_short}
+                                            {len === 'medium' && labels.len_medium}
+                                            {len === 'long' && labels.len_long}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
                             <div className="flex items-center justify-between">
                                 <label className="text-sm font-medium text-gray-700">{labels.language}</label>
                                 <div className="flex bg-gray-100 rounded-lg p-1">
@@ -160,6 +183,7 @@ const ChatSettingsView: React.FC<Props> = ({ companionId, lang, onBack, onOpenPr
                                     <button onClick={() => setChatSettings({...chatSettings, language: 'zh'})} className={`px-3 py-1.5 text-xs rounded-md transition ${chatSettings.language === 'zh' ? 'bg-white shadow text-indigo-600 font-bold' : 'text-gray-500'}`}>中文</button>
                                 </div>
                             </div>
+
                             <div className="flex items-center justify-between">
                                 <label className="text-sm font-medium text-gray-700">{labels.auxiliary}</label>
                                 <button 
@@ -209,7 +233,9 @@ const ChatSettingsView: React.FC<Props> = ({ companionId, lang, onBack, onOpenPr
                     </button>
                     {activeSection === 'config' && (
                         <div className="p-4 bg-white animate-in slide-in-from-top-2 border-t border-gray-100">
-                            <p className="text-xs text-gray-400 mb-3">Facts, habits, or lore injected into the system prompt.</p>
+                            <p className="text-xs text-gray-400 mb-3">
+                                {lang === 'zh' ? '注入到系统提示词中的事实、习惯或背景设定。' : 'Facts, habits, or lore injected into the system prompt.'}
+                            </p>
                             <div className="space-y-2 mb-3">
                                 {configItems.map((item, idx) => (
                                     <div key={idx} className="flex gap-2 items-center">
@@ -221,12 +247,16 @@ const ChatSettingsView: React.FC<Props> = ({ companionId, lang, onBack, onOpenPr
                                         <button onClick={() => removeConfigItem(idx)} className="text-gray-400 hover:text-red-500 p-1"><Trash2 size={14}/></button>
                                     </div>
                                 ))}
-                                {configItems.length === 0 && <div className="text-sm text-gray-400 italic text-center py-2">No supplementary settings.</div>}
+                                {configItems.length === 0 && (
+                                    <div className="text-sm text-gray-400 italic text-center py-2">
+                                        {lang === 'zh' ? '暂无补充设定。' : 'No supplementary settings.'}
+                                    </div>
+                                )}
                             </div>
                             <div className="flex gap-2 mt-2">
                                 <input 
                                     className="flex-1 p-2 text-sm border rounded-lg"
-                                    placeholder="Add new detail..."
+                                    placeholder={lang === 'zh' ? "添加新设定..." : "Add new detail..."}
                                     value={newConfigItem}
                                     onChange={e => setNewConfigItem(e.target.value)}
                                     onKeyDown={e => e.key === 'Enter' && addConfigItem()}
@@ -289,3 +319,4 @@ const SettingsIcon: React.FC<{size: number, className: string}> = ({size, classN
 );
 
 export default ChatSettingsView;
+    
