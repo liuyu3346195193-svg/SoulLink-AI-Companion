@@ -50,7 +50,7 @@
 
 * **在线 Demo 体验 (Vercel):** [soul-link-ai-companion.vercel.app](https://soul-link-ai-companion.vercel.app/)
 * **产品功能演示 (小红书视频):** [[产品演示链接](https://www.xiaohongshu.com/discovery/item/692e1248000000000d03a299?source=webshare&xhsshare=pc_web&xsec_token=AB2z45Wk-HMj3X68pGI-dHis9KiBrVnTQtqp5FaCJ0YmM=&xsec_source=pc_share)]
-* **完整产品描述 (PRD 来源):** 本 $README$ 内容即提炼自**完整的项目产品文档**。
+* **项目资料与索引：** [[飞书作品集链接](https://ai.feishu.cn/wiki/PfGQweOZDifOMIkmEQHcxVufnwe?from=from_copylink)] (此链接包含更多原型设计和流程图等资料)
 
 ---
 
