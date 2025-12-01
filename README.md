@@ -51,7 +51,30 @@
 * **在线 Demo 体验 (Vercel):** [soul-link-ai-companion.vercel.app](https://soul-link-ai-companion.vercel.app/)
 * **产品功能演示 (小红书视频):** [[产品演示链接](https://www.xiaohongshu.com/discovery/item/692e1248000000000d03a299?source=webshare&xhsshare=pc_web&xsec_token=AB2z45Wk-HMj3X68pGI-dHis9KiBrVnTQtqp5FaCJ0YmM=&xsec_source=pc_share)]
 * **完整产品描述 (PRD 来源):** 本 $README$ 内容即提炼自**完整的项目产品文档**。
-* **技术栈：** [请补充您使用的技术，如 TypeScript, React, Gemini API, AI Studio 等]
 
+---
+
+## 🛠️ 五、技术栈 
+
+> SoulLink AI 是一个由 **React/TypeScript** 构建的 **Local-First** AI 应用，以 **Google Gemini API** 为核心智能引擎。
+
+### 1. AI 与大模型 (AIGC)
+* **核心智能引擎：** Google Gemini API。
+* **使用模型：** $gemini-2.5-flash$ (对话、分析) 和 $gemini-2.5-flash-image$ (多模态识图、生图)。
+* **核心功能：** 角色对话、冲突状态分析 (`analyzeConflictState`)、朋友圈文案生成 (`generateSocialPostStructured`)、照片合成 (`synthesizePhoto`) 等。
+
+### 2. 前端与构建
+* **核心框架：** React, TypeScript。
+* **构建工具：** Vite (极速热更新)。
+* **部署环境：** Vercel (CI/CD)。
+
+### 3. 数据与状态
+* **核心策略：** Local-First Store (基于 localStorage)。
+* **云端同步：** Firebase Firestore (用于云端数据同步和持久化备份，实现了 Smart Merge 实时合并策略)。
+
+### 4. 样式与 UI
+* **UI 框架：** Tailwind CSS (实用优先)。
+* **数据可视化：** Recharts (用于绘制角色人格维度的雷达图)。
+* **组件库：** Lucide React (图标), React Markdown (渲染 AI 输出文本)。
 ---
 * *SoulLink AI - 连接每一个孤独的灵魂。*
