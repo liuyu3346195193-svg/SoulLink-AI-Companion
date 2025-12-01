@@ -11,7 +11,7 @@ const getApiKey = (): string => {
   }
   if (!key) {
     try {
-      key = process.env.API_KEY || process.env.REACT_APP_API_KEY || process.env.NEXT_PUBLIC_API_KEY || '';
+      key = process.env.GEMINI_API_KEY || process.env.API_KEY || process.env.REACT_APP_API_KEY || process.env.NEXT_PUBLIC_API_KEY || '';
     } catch (e) {}
   }
   if (!key && typeof window !== 'undefined') {
