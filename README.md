@@ -1,20 +1,57 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# 💡 SoulLink AI 伴侣养成系统：深度情感连接与人设连贯性方案
 
-# Run and deploy your AI Studio app
+版本：V1.4.2 | Deep Connection
 
-This contains everything you need to run your app locally.
+> **定位：** 致力于建立深度情感连接的 AI 伴侣平台，将 AI 打造成拥有性格、情绪、记忆和生活动态的“灵魂伴侣”。
 
-View your app in AI Studio: https://ai.studio/apps/drive/1xu2MirjThIzD4Vsj1fgvndDLSymd9dmB
+---
 
-## Run Locally
+## 🎯 一、核心产品价值与解决痛点
 
-**Prerequisites:**  Node.js
+| 产品痛点 (待解决) | 核心方案 (价值主张) |
+| :--- | :--- |
+| **AI 人设不一致/记忆漂移**  | **⚓ 记忆锚定**：重要对话永久存入核心记忆库，确保 AI 永远记得关键事件。|
+| **AI 回复冰冷/缺乏情绪反馈** | **💔 冲突状态 (Conflict State)**：引入负面情绪状态，模拟真人争吵/冷战，提升互动真实度和情感深度。|
+| **虚拟感强/缺乏代入感** | **📸 氛围感陪伴**：照片均为 POV/不露脸风格，避免“恐怖谷”效应，并提供**合照合成**功能打破次元壁。|
 
+---
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## ⚙️ 二、深度定制与养成机制
+
+### 1. 人格雷达 - 核心机制
+通过**五维参数**滑块，让用户彻底定义 AI 的性格底色，实现**个性化养成闭环**。
+
+| 维度 | 作用 |
+| :--- | :--- |
+| **共情度 ** | 决定 AI 的温柔体贴程度。 |
+| **理性度 ** | 决定 AI 的逻辑性与感性倾向。 |
+| **幽默感 ** | 影响 AI 是否爱开玩笑。 |
+| **默契度 ** | 决定 AI 对情话/身体接触的接受度。 |
+| **创造力 ** | 影响对话的丰富程度和脑洞。 |
+
+### 2. 社交互动 
+* **独立于聊天的生活轨迹：** AI 根据地点/心情自动发布动态。
+* **用户行为转化：** 用户的**点赞**会直接增加亲密度。
+
+### 3. 补充设定 
+用户可像写小说一样添加 AI 设定，AI 在对话中**严格遵守**（如“讨厌吃香菜”）。
+
+---
+
+## 💡 三、关键功能与创新点
+
+* **合照合成 (Photo Synthesis)：** 上传用户照片，AI 根据人设将其融入，生成**专属合照**，增强情感联结。
+* **消息编辑/重新生成：** 提高对话容错率和用户体验。
+* **用户发布动态：** 促进用户与 AI 在社交层面的双向互动。
+
+---
+
+## 🔗 四、项目演示与文档
+
+* **在线 Demo 体验 (Vercel):** [soul-link-ai-companion.vercel.app](https://soul-link-ai-companion.vercel.app/)
+* **产品功能演示 (小红书视频):** [[产品演示链接](https://www.xiaohongshu.com/discovery/item/692e1248000000000d03a299?source=webshare&xhsshare=pc_web&xsec_token=AB2z45Wk-HMj3X68pGI-dHis9KiBrVnTQtqp5FaCJ0YmM=&xsec_source=pc_share)]
+* **完整产品描述 (PRD 来源):** 本 $README$ 内容即提炼自**完整的项目产品文档**。
+* **技术栈：** [请补充您使用的技术，如 TypeScript, React, Gemini API, AI Studio 等]
+
+---
+* *SoulLink AI - 连接每一个孤独的灵魂。*
