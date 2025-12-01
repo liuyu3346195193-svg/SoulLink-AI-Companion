@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useRef } from 'react';
 import { ArrowLeft, Image as ImageIcon, Globe, Save, Edit3, Camera, X } from 'lucide-react';
 import { Companion, PersonaDimensions, InterfaceLanguage, DICT } from '../types';
 import { db } from '../services/store';
@@ -18,6 +19,7 @@ const ProfileEditor: React.FC<Props> = ({ companionId, onBack, onOpenAlbum, lang
     // Local state for text fields to avoid jitter/database spam, save on blur or button
     const [formData, setFormData] = useState({
         name: companion?.name || '',
+        avatar: companion?.avatar || '',
         description: companion?.personalityDescription || '',
         gender: companion?.gender || '',
         age: companion?.age || '',
@@ -27,6 +29,7 @@ const ProfileEditor: React.FC<Props> = ({ companionId, onBack, onOpenAlbum, lang
     });
 
     const [isDirty, setIsDirty] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     if (!companion) return null;
     
@@ -44,10 +47,24 @@ const ProfileEditor: React.FC<Props> = ({ companionId, onBack, onOpenAlbum, lang
         setIsDirty(true);
     };
 
+    const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const result = reader.result as string;
+                setFormData(prev => ({ ...prev, avatar: result }));
+                setIsDirty(true);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
     const handleSave = () => {
         const updated = {
             ...companion,
             name: formData.name,
+            avatar: formData.avatar,
             personalityDescription: formData.description,
             gender: formData.gender,
             age: formData.age,
@@ -58,6 +75,14 @@ const ProfileEditor: React.FC<Props> = ({ companionId, onBack, onOpenAlbum, lang
             remark: (companion.remark === companion.name) ? formData.name : companion.remark
         };
         db.updateCompanion(updated);
+        
+        // Optional: If avatar changed, archive old one (using store helper or manually)
+        if (formData.avatar !== companion.avatar) {
+             db.changeCompanionAvatar(companion.id, formData.avatar);
+        } else {
+             setCompanion(updated); // simple update if avatar didn't change logic wise (store handles merge)
+        }
+        
         setCompanion(updated);
         setIsDirty(false);
     };
@@ -85,15 +110,26 @@ const ProfileEditor: React.FC<Props> = ({ companionId, onBack, onOpenAlbum, lang
             <div className="p-6 pb-12 space-y-8">
                  {/* Hero Section */}
                  <div className="flex flex-col items-center">
-                     <div className="relative group cursor-pointer">
+                     <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
                         <div className="absolute -inset-1 bg-gradient-to-r from-pink-600 to-purple-600 rounded-full blur opacity-75 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"></div>
-                        <img src={companion.avatar} className="relative w-28 h-28 rounded-full border-4 border-slate-800 object-cover shadow-xl" alt="avatar" />
-                        {/* Visual indicator that avatar is not currently editable but looks 'active' */}
+                        <img src={formData.avatar} className="relative w-28 h-28 rounded-full border-4 border-slate-800 object-cover shadow-xl group-hover:brightness-75 transition" alt="avatar" />
+                        
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition z-10">
+                            <Camera className="text-white drop-shadow-md" size={32} />
+                        </div>
+                        <input 
+                            type="file" 
+                            ref={fileInputRef} 
+                            className="hidden" 
+                            accept="image/*" 
+                            onChange={handleAvatarUpload} 
+                        />
                      </div>
+                     <span className="text-xs text-slate-400 mt-2">Tap avatar to change</span>
                      
                      {/* Name Input */}
                      <input 
-                        className="mt-4 bg-transparent text-2xl font-bold text-center border-b border-transparent hover:border-white/20 focus:border-indigo-500 outline-none transition-all w-2/3 placeholder-white/30"
+                        className="mt-2 bg-transparent text-2xl font-bold text-center border-b border-transparent hover:border-white/20 focus:border-indigo-500 outline-none transition-all w-2/3 placeholder-white/30"
                         value={formData.name}
                         onChange={e => handleTextChange('name', e.target.value)}
                         placeholder="Name"

@@ -178,6 +178,8 @@ export const DICT = {
         len_short: "Short",
         len_medium: "Medium",
         len_long: "Long",
+        deleteCompanion: "Delete Soul",
+        deleteCompanionConfirm: "Are you sure you want to delete this Soul? This cannot be undone.",
         
         // Dimensions
         dim_empathy: "Empathy",
@@ -237,6 +239,8 @@ export const DICT = {
         len_short: "简短",
         len_medium: "适中",
         len_long: "详细",
+        deleteCompanion: "删除该灵体",
+        deleteCompanionConfirm: "确定要永久删除这个灵体吗？所有聊天记录和记忆将无法恢复。",
         
         // Dimensions
         dim_empathy: "共情度",
@@ -246,4 +250,3 @@ export const DICT = {
         dim_creativity: "创造力"
     }
 };
-    

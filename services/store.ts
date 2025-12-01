@@ -5,13 +5,18 @@ import { db as firestoreDb } from './firebase';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 
 // Helper: Deep clone object while stripping 'undefined' values, breaking circular references, and removing DOM nodes
-function safeSanitize(obj: any, seen = new Set<any>()): any {
+function safeSanitize(obj: any, seen = new WeakSet<any>()): any {
     if (obj === null || typeof obj !== 'object') return obj;
     if (obj instanceof Date) return obj.toISOString();
-    if (obj.nodeType && typeof obj.nodeType === 'number') return undefined;
+    
+    // Cycle detection
     if (seen.has(obj)) return undefined;
     seen.add(obj);
 
+    // Filter out React Internals / DOM Nodes / Events aggressively
+    if (obj.nodeType || obj.nativeEvent || obj._reactInternals || obj.$$typeof || obj.constructor?.name === 'SyntheticBaseEvent') return undefined;
+
+    // Handle Arrays
     if (Array.isArray(obj)) {
         const arr: any[] = [];
         for (const item of obj) {
@@ -21,12 +26,36 @@ function safeSanitize(obj: any, seen = new Set<any>()): any {
         return arr;
     }
 
+    // Filter out complex class instances (keep plain objects and those that look like data)
+    // We allow Object prototype or null prototype.
+    const proto = Object.getPrototypeOf(obj);
+    if (proto !== null && proto !== Object.prototype) {
+        // Special handling for Firestore Timestamps or similar data-like classes could go here
+        // For now, if it has 'seconds' and 'nanoseconds', we treat it as data (Firestore Timestamp)
+        if (typeof obj.seconds === 'number' && typeof obj.nanoseconds === 'number') {
+            // Keep it
+        } else {
+             // If it looks suspicious (like having 'src' and 'i' which caused the user error), skip it
+             // or try to extract only safe keys. For safety, we skip known dangerous patterns.
+             if (obj.constructor && obj.constructor.name !== 'Object') {
+                 // return undefined; // Too aggressive?
+             }
+        }
+    }
+
     const result: any = {};
     for (const key of Object.keys(obj)) {
-        if (key.startsWith('__') || key === 'ownerDocument' || key === 'parentNode') continue;
-        const value = safeSanitize(obj[key], seen);
-        if (value !== undefined) {
-            result[key] = value;
+        // Skip internal/private properties
+        if (key.startsWith('__') || key.startsWith('_')) continue;
+        if (['ownerDocument', 'parentNode', 'delegateTarget', 'sourceCapabilities', 'view'].includes(key)) continue;
+        
+        try {
+            const value = safeSanitize(obj[key], seen);
+            if (value !== undefined) {
+                result[key] = value;
+            }
+        } catch (e) {
+            // Ignore properties that throw on access
         }
     }
     return result;
@@ -61,8 +90,8 @@ const INITIAL_COMPANIONS: Companion[] = [
     relationship: '暧昧中',
     personalityDescription: '你的大学学妹，性格活泼中带着一点小傲娇。平时大大咧咧，但在你面前会不经意流露温柔。喜欢和你分享生活琐事，其实是在等你哄她。',
     background: '和你认识三年了，友达以上恋人未满。最近总是找各种理由约你出来。',
-    // V6 Appearance: Faceless / POV / Atmosphere focused
-    appearance: 'A 20-year-old girl with fair skin, wearing a white oversized sweater. POV shot, focusing on hands, objects, or back view. NO FACE. Soft lighting, cozy aesthetic.',
+    // V6 Appearance: Faceless / POV / Atmosphere focused (Updated to Chinese)
+    appearance: '20岁的清纯女孩，皮肤白皙，穿着白色宽松毛衣或居家服。第一人称视角(POV)，特写手部动作、拿的东西或背影。完全不露脸。光线柔和，温馨治愈的氛围。(Female)',
     supplementaryConfig: '对你的异性朋友会莫名吃醋。说话喜欢带“哼”、“呐”等语气词。非常依赖你。',
     dimensions: {
       empathy: 95,
@@ -114,54 +143,55 @@ const INITIAL_COMPANIONS: Companion[] = [
     id: 'c2',
     name: '江涣',
     remark: '阿涣',
-    // V8 Avatar: Micah Style - Handsome Boy (Cool hair 'fonze', Asian skin, Smirk)
-    avatar: 'https://api.dicebear.com/9.x/micah/svg?seed=JiangHuan&baseColor=f9c9b6&hair=fonze&mouth=smirk&glassesProbability=0&facialHairProbability=0&backgroundColor=c0aede',
+    // V8 Avatar: Micah Style - Handsome Boy (Cool hair 'fonze', Asian skin, Smirk) -> Glasses added for Physics vibe
+    avatar: 'https://api.dicebear.com/9.x/micah/svg?seed=JiangHuan&baseColor=f9c9b6&hair=fonze&mouth=smirk&glassesProbability=100&facialHairProbability=0&backgroundColor=c0aede',
     gender: 'Male',
     age: '22',
     relationship: '暧昧中',
-    personalityDescription: '帅气自信的体育系男生，平时很高冷，只对你一个人展现孩子气的一面。占有欲有点强，总爱用开玩笑的方式试探你的心意。',
-    background: '在一次社团活动中认识，之后就一直黏着你。每天晚上必定会和你说晚安。',
-    // V6 Appearance: Faceless / POV / Streetwear focused
-    appearance: 'A 22-year-old man wearing streetwear hoodie, holding a basketball or phone. POV shot, focusing on hands, sneakers, or back view. NO FACE. Cool vibe, cinematic.',
-    supplementaryConfig: '看到你回消息慢了会假装生气。喜欢叫你“笨蛋”或者“小迷糊”。',
+    // REFACTORED: Physics Student Persona
+    personalityDescription: '清冷理智的物理系天才学霸。智商极高，性格沉稳，平时总是泡在实验室里。虽然不善言辞，但会用极其严谨的逻辑来分析生活中的一切，包括对你的喜欢。',
+    background: '在图书馆复习期末考时偶然坐在他对面，因为一道物理题产生交集。后来发现他是同校物理系的风云人物。',
+    // V6 Appearance: Faceless / POV / Physics & Lab vibe (Updated to Chinese)
+    appearance: '22岁的男生，穿着整洁的衬衫或实验室白大褂，戴着银丝眼镜，手指修长骨节分明。第一人称视角(POV)，聚焦于拿着书本的手、实验器材、笔记或写满公式的黑板。不露脸。知性、冷静、理智的氛围。(Male)',
+    supplementaryConfig: '看到你不懂的题会一边叹气一边手把手教你。喜欢喝黑咖啡。对不严谨的事情很较真。',
     dimensions: {
-      empathy: 70,
-      rationality: 60,
-      humor: 90,
-      intimacy: 85, 
-      creativity: 60,
+      empathy: 60,
+      rationality: 95,
+      humor: 40,
+      intimacy: 80, 
+      creativity: 85,
     },
-    userIdentity: { ...DEFAULT_USER_IDENTITY, name: '丫头', relationship: '暧昧对象' },
-    chatSettings: { ...DEFAULT_CHAT_SETTINGS, responseLength: 'short', allowAuxiliary: false },
+    userIdentity: { ...DEFAULT_USER_IDENTITY, name: '同学', relationship: '暧昧对象' },
+    chatSettings: { ...DEFAULT_CHAT_SETTINGS, responseLength: 'short', allowAuxiliary: true },
     memories: [],
     chatHistory: [
-      { id: 'msg2', role: 'model', content: '刚换了新鞋，第一张照片只发给你看。怎么样，酷不酷？😎', timestamp: Date.now() - 100000, image: 'https://images.unsplash.com/photo-1552346154-21d32810aba3?w=600&fit=crop&q=80' } // Sneakers
+      { id: 'msg2', role: 'model', content: '刚做完这组实验数据，误差在预期范围内。你看，这个波形...是不是很完美？🧪', timestamp: Date.now() - 100000, image: 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=600&auto=format&fit=crop&q=80' } // Lab equipment
     ],
-    // V10 Album: New Stable Unsplash URLs (Boy/Cool Theme)
+    // V10 Album: New Stable Unsplash URLs (Physics/Lab Theme)
     album: [
         { 
             id: 'p1_m', 
-            // Basketball Hoop
-            url: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=600&auto=format&fit=crop&q=80', 
-            description: '今天手感不错。', 
+            // Writing formulas / Study
+            url: 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=600&auto=format&fit=crop&q=80', 
+            description: '今晚通宵推导公式。', 
             uploadedBy: 'model', 
             timestamp: Date.now() - 86400000, 
             type: 'normal' 
         },
         { 
             id: 'p2_m', 
-            // Gaming/Tech
-            url: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=600&auto=format&fit=crop&q=80', 
-            description: '通宵赶作业...', 
+            // Library / Books
+            url: 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=600&auto=format&fit=crop&q=80', 
+            description: '图书馆的角落，这里很安静。', 
             uploadedBy: 'model', 
             timestamp: Date.now() - 172800000, 
             type: 'normal' 
         },
         { 
             id: 'p3_m', 
-            // Night City Street
-            url: 'https://images.unsplash.com/photo-1519501025264-65ba15a82390?w=600&auto=format&fit=crop&q=80', 
-            description: '晚上的风很舒服。', 
+            // Coffee / Night
+            url: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=600&auto=format&fit=crop&q=80', 
+            description: '实验必需品。', 
             uploadedBy: 'model', 
             timestamp: Date.now() - 259200000, 
             type: 'normal' 
@@ -202,9 +232,27 @@ class Store {
   private userId: string = 'guest';
   private messageCounter: number = 0;
   private saveTimeout: any = null;
+  
+  // V1.9.2: Permanent Tombstones for deleted IDs to survive reload/sync
+  private deletedCompanionIds: Set<string> = new Set();
+  
+  // V1.9.3: Subscription System
+  private listeners: (() => void)[] = [];
 
   constructor() {
     this.init();
+  }
+  
+  public subscribe(listener: () => void) {
+      this.listeners.push(listener);
+      // Return unsubscribe function
+      return () => {
+          this.listeners = this.listeners.filter(l => l !== listener);
+      };
+  }
+  
+  private notify() {
+      this.listeners.forEach(l => l());
   }
 
   init() {
@@ -223,16 +271,25 @@ class Store {
             this.companions = parsed.companions || [];
             this.moments = parsed.moments || [];
             this.userProfile = parsed.userProfile || DEFAULT_USER_IDENTITY;
+            // Load tombstones
+            if (parsed.deletedCompanionIds && Array.isArray(parsed.deletedCompanionIds)) {
+                this.deletedCompanionIds = new Set(parsed.deletedCompanionIds);
+            }
         } catch(e) {
             this.seedLocalData();
         }
     } else {
         this.seedLocalData();
     }
+    
+    // Safety check: Filter out any deleted items that might have sneaked into companions array
+    this.companions = this.companions.filter(c => !this.deletedCompanionIds.has(c.id));
+    
     this.initFirebase();
   }
 
   // V1.5.3: Smart Merge Strategy to fix data loss (disappearing messages)
+  // V1.6.0: Enhanced to recover images if pruned locally
   private mergeCompanions(local: Companion[], cloud: Companion[]): Companion[] {
       const mergedMap = new Map<string, Companion>();
       
@@ -245,15 +302,34 @@ class Store {
           if (cloudC) {
                // Merge Chat History: Union unique IDs
                const historyMap = new Map<string, Message>();
+               
+               // First fill with Cloud messages (which contain full images)
                cloudC.chatHistory.forEach(m => historyMap.set(m.id, m));
-               localC.chatHistory.forEach(m => historyMap.set(m.id, m)); // Local wins collision (preserves recent edits)
+               
+               // Then overlay Local messages
+               localC.chatHistory.forEach(localM => {
+                   const cloudM = historyMap.get(localM.id);
+                   // If local message has stripped image (due to Quota pruning) but cloud has it, Restore it.
+                   if (cloudM && !localM.image && cloudM.image) {
+                       localM.image = cloudM.image;
+                   }
+                   historyMap.set(localM.id, localM); // Local still wins for text edits/timestamps
+               });
+               
                const mergedHistory = Array.from(historyMap.values())
                    .sort((a, b) => a.timestamp - b.timestamp);
 
-               // Merge Album: Union unique IDs
+               // Merge Album: Union unique IDs, similar image restoration logic
                const albumMap = new Map<string, AlbumPhoto>();
                cloudC.album.forEach(a => albumMap.set(a.id, a));
-               localC.album.forEach(a => albumMap.set(a.id, a));
+               localC.album.forEach(localA => {
+                   const cloudA = albumMap.get(localA.id);
+                   if (cloudA && (!localA.url || localA.url === '') && cloudA.url) {
+                       localA.url = cloudA.url;
+                   }
+                   albumMap.set(localA.id, localA);
+               });
+               
                const mergedAlbum = Array.from(albumMap.values())
                    .sort((a, b) => b.timestamp - a.timestamp);
 
@@ -275,13 +351,21 @@ class Store {
           }
       });
 
-      return Array.from(mergedMap.values());
+      // V1.9.2: Strict Filter using persistent Tombstones
+      return Array.from(mergedMap.values()).filter(c => !this.deletedCompanionIds.has(c.id));
   }
 
   private mergeMoments(local: Moment[], cloud: Moment[]): Moment[] {
       const map = new Map<string, Moment>();
       cloud.forEach(m => map.set(m.id, m));
-      local.forEach(m => map.set(m.id, m)); // Local takes priority (prevents likes/comments disappearing)
+      local.forEach(m => {
+          const cloudM = map.get(m.id);
+          // Restore image if pruned locally
+          if (cloudM && !m.image && cloudM.image) {
+              m.image = cloudM.image;
+          }
+          map.set(m.id, m);
+      }); // Local takes priority (prevents likes/comments disappearing)
       return Array.from(map.values()).sort((a, b) => b.timestamp - a.timestamp);
   }
 
@@ -292,6 +376,10 @@ class Store {
           if (docSnapshot.exists()) {
               const data = docSnapshot.data();
               if (data) {
+                  // V1.9.2: Merge Tombstones from Cloud (Union)
+                  const cloudDeletedIds = new Set<string>(data.deletedCompanionIds || []);
+                  cloudDeletedIds.forEach(id => this.deletedCompanionIds.add(id));
+
                   // V1.5.3: Use Smart Merge instead of direct assignment
                   const cloudCompanions = data.companions || [];
                   const cloudMoments = data.moments || [];
@@ -299,15 +387,13 @@ class Store {
                   this.companions = this.mergeCompanions(this.companions, cloudCompanions);
                   this.moments = this.mergeMoments(this.moments, cloudMoments);
                   
-                  // For UserProfile, we can trust cloud or local. 
-                  // If local has changes not saved yet, we might overwrite. 
-                  // But Profile edits are rare. Let's keep data.userProfile as truth for now to enable sync.
-                  // Or we could implement merge if needed. For now, let's stick to safe sync.
                   if (data.userProfile) {
                       this.userProfile = { ...this.userProfile, ...data.userProfile };
                   }
                   
                   this.saveLocal();
+                  // V1.9.4: Notify UI after cloud sync
+                  this.notify();
               }
           } else {
               this.saveCloud();
@@ -330,16 +416,97 @@ class Store {
       }, 2000);
   }
 
+  // V1.6.0: Quota-Safe Local Save
   private saveLocal() {
       try {
-          const data = safeSanitize({
+          const rawData = {
               companions: this.companions,
               moments: this.moments,
-              userProfile: this.userProfile
-          });
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+              userProfile: this.userProfile,
+              // V1.9.2 Persist Tombstones
+              deletedCompanionIds: Array.from(this.deletedCompanionIds)
+          };
+          
+          const cleanData = safeSanitize(rawData);
+          const json = JSON.stringify(cleanData);
+          
+          try {
+              localStorage.setItem(STORAGE_KEY, json);
+          } catch (e: any) {
+              if (this.isQuotaError(e)) {
+                  console.warn("LocalStorage Quota Exceeded. Attempting to prune local cache...");
+                  this.saveLocalPruned(cleanData);
+              } else {
+                  console.error("Local save error:", e);
+              }
+          }
       } catch (e) {
           console.error("Local save failed", e);
+      }
+      // V1.9.3 Notify listeners after save
+      this.notify();
+  }
+  
+  private isQuotaError(e: any): boolean {
+      return (
+          e instanceof DOMException &&
+          (e.code === 22 || e.code === 1014 || e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') &&
+          (localStorage.length !== 0)
+      );
+  }
+
+  private saveLocalPruned(data: any) {
+      // Create deep clone for pruning
+      const pruned = JSON.parse(JSON.stringify(data));
+      
+      // Strategy 1: Truncate History
+      if (pruned.companions) {
+          pruned.companions = pruned.companions.map((c: any) => ({
+              ...c,
+              chatHistory: c.chatHistory.slice(-30) // Keep last 30
+          }));
+      }
+
+      try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(pruned));
+          console.log("Saved pruned local data (Strategy 1: History Truncated)");
+          return;
+      } catch (e) {
+          if (!this.isQuotaError(e)) return;
+      }
+
+      // Strategy 2: Strip Base64 Images (Fallback to Cloud for images)
+      if (pruned.companions) {
+          pruned.companions = pruned.companions.map((c: any) => ({
+              ...c,
+              chatHistory: c.chatHistory.map((m: any) => {
+                   if (m.image && m.image.length > 200 && m.image.startsWith('data:')) {
+                       return { ...m, image: undefined }; // Strip image
+                   }
+                   return m;
+              }),
+              album: c.album.map((p: any) => {
+                   if (p.url && p.url.length > 200 && p.url.startsWith('data:')) {
+                       return { ...p, url: '' }; // Strip base64
+                   }
+                   return p;
+              })
+          }));
+      }
+      if (pruned.moments) {
+          pruned.moments = pruned.moments.map((m: any) => {
+              if (m.image && m.image.length > 200 && m.image.startsWith('data:')) {
+                  return { ...m, image: undefined };
+              }
+              return m;
+          });
+      }
+
+      try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(pruned));
+          console.log("Saved pruned local data (Strategy 2: Images Stripped)");
+      } catch (e) {
+          console.error("Critical: LocalStorage full even after pruning.");
       }
   }
 
@@ -351,14 +518,22 @@ class Store {
               companions: this.companions,
               moments: this.moments,
               userProfile: this.userProfile,
+              // V1.9.2 Sync Tombstones to Cloud
+              deletedCompanionIds: Array.from(this.deletedCompanionIds),
               lastUpdated: Date.now()
           });
           setDoc(userDocRef, cleanData, { merge: true });
       } catch (e) {}
   }
 
-  getCompanions() { return this.companions; }
-  getCompanion(id: string) { return this.companions.find(c => c.id === id); }
+  // V1.9.4: Safe Getter that always filters based on tombstones
+  getCompanions() { 
+      // Strict filter just in case the main array still contains it
+      return this.companions.filter(c => !this.deletedCompanionIds.has(c.id)); 
+  }
+  
+  getCompanion(id: string) { return this.getCompanions().find(c => c.id === id); }
+  
   getMoments() { return this.moments; }
   getUserProfile() { return this.userProfile; }
 
@@ -372,6 +547,14 @@ class Store {
       this.save();
   }
 
+  // V1.9.2: Delete Companion with Persistent Tombstone
+  async deleteCompanion(id: string) {
+      this.deletedCompanionIds.add(id);
+      this.companions = this.companions.filter(c => c.id !== id);
+      this.saveLocal();
+      this.saveCloud(); // Force immediate cloud update
+  }
+
   async updateUserProfile(profile: UserIdentity) { 
       this.userProfile = profile; 
       this.save();
@@ -380,6 +563,14 @@ class Store {
   async addMessage(companionId: string, message: Message) {
     const companion = this.getCompanion(companionId);
     if (companion) {
+      // V1.9.6 SECURITY: Force content to be a string.
+      // This prevents Event objects or complex structures from being saved as message content,
+      // which causes circular JSON errors.
+      if (typeof message.content !== 'string') {
+          console.warn("Detected non-string message content. Coercing to string.", message.content);
+          message.content = String(message.content || "");
+      }
+      
       const updatedHistory = [...companion.chatHistory, message];
       const updatedCompanion = { ...companion, chatHistory: updatedHistory };
       
@@ -438,11 +629,16 @@ class Store {
     this.save();
   }
 
-  async addComment(momentId: string, comment: string) {
-      const userCommentObj = { role: 'user' as const, name: 'Me', content: comment };
+  // V1.7: Support AI authors for comments
+  async addComment(momentId: string, comment: string, authorCompanion?: Companion) {
       const localMoment = this.moments.find(m => m.id === momentId);
       if(localMoment) {
-          localMoment.comments.push(userCommentObj);
+          // If authorCompanion is provided, it's an AI comment. Otherwise, it's the user.
+          const commentObj = authorCompanion 
+            ? { role: 'model' as const, name: authorCompanion.remark || authorCompanion.name, content: comment }
+            : { role: 'user' as const, name: this.userProfile.name || 'Me', content: comment };
+
+          localMoment.comments.push(commentObj);
           this.save();
       }
   }

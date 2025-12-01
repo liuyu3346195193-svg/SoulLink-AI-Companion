@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import { Users, MessageCircle, Aperture, Settings, Heart, Send, Sliders, PlayCircle, ArrowLeft, PlusCircle, Check, Image as ImageIcon, Globe, User, Edit, Languages } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Users, MessageCircle, Aperture, Settings, Heart, Send, Sliders, PlayCircle, ArrowLeft, PlusCircle, Check, Image as ImageIcon, Globe, User, Edit, Languages, Camera } from 'lucide-react';
 import { db } from './services/store';
 import { Companion, ViewState, Moment, PersonaDimensions, UserIdentity, ChatSettings, DICT, InterfaceLanguage } from './types';
 import ChatScreen from './components/ChatScreen';
@@ -8,7 +8,7 @@ import PersonaRadar from './components/PersonaRadar';
 import AlbumView from './components/AlbumView';
 import ProfileEditor from './components/ProfileEditor';
 import ChatSettingsView from './components/ChatSettingsView';
-import { generateSocialPostStructured, generateImageFromPrompt, translateText } from './services/gemini';
+import { generateSocialPostStructured, generateImageFromPrompt, translateText, generateMomentComment, generateMomentReply } from './services/gemini';
 
 // --- Create View (V1.1) ---
 const CreateCompanionView: React.FC<{ onCancel: () => void, onComplete: (id: string) => void, lang: InterfaceLanguage }> = ({ onCancel, onComplete, lang }) => {
@@ -97,11 +97,23 @@ const CreateCompanionView: React.FC<{ onCancel: () => void, onComplete: (id: str
 // B11: Me View
 const MeView: React.FC<{ lang: InterfaceLanguage, setLang: (l: InterfaceLanguage) => void }> = ({ lang, setLang }) => {
     const [profile, setProfile] = useState(db.getUserProfile());
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const labels = DICT[lang];
 
     const handleSave = () => {
         db.updateUserProfile(profile);
         alert("Profile Saved!");
+    };
+
+    const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setProfile(prev => ({ ...prev, avatar: reader.result as string }));
+            };
+            reader.readAsDataURL(file);
+        }
     };
 
     return (
@@ -117,13 +129,27 @@ const MeView: React.FC<{ lang: InterfaceLanguage, setLang: (l: InterfaceLanguage
             
             <div className="p-6 space-y-6 flex-1 overflow-y-auto">
                  <div className="flex flex-col items-center">
-                     <img src={profile.avatar} className="w-24 h-24 rounded-full border-4 border-white shadow-lg mb-4" />
+                     <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                         <img src={profile.avatar} className="w-24 h-24 rounded-full border-4 border-white shadow-lg mb-4 group-hover:brightness-90 transition object-cover" />
+                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition z-10 mb-4">
+                            <Camera className="text-white drop-shadow-md" size={24} />
+                         </div>
+                         <input 
+                            type="file" 
+                            ref={fileInputRef} 
+                            className="hidden" 
+                            accept="image/*" 
+                            onChange={handleAvatarUpload} 
+                         />
+                     </div>
+
                      <div className="w-full space-y-3">
                          <label className="text-xs text-gray-500 font-bold uppercase">{labels.name}</label>
                          <input value={profile.name} onChange={e => setProfile({...profile, name: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl border" />
                          
-                         <label className="text-xs text-gray-500 font-bold uppercase">Avatar URL</label>
-                         <input value={profile.avatar} onChange={e => setProfile({...profile, avatar: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl border" />
+                         {/* Avatar URL can still be manually edited if needed, but upload is primary */}
+                         <label className="text-xs text-gray-500 font-bold uppercase">Avatar URL (Optional)</label>
+                         <input value={profile.avatar} onChange={e => setProfile({...profile, avatar: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl border text-gray-400 text-xs truncate" />
                          
                          <label className="text-xs text-gray-500 font-bold uppercase">{labels.gender}</label>
                          <input value={profile.gender} onChange={e => setProfile({...profile, gender: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl border" />
@@ -139,8 +165,20 @@ const MeView: React.FC<{ lang: InterfaceLanguage, setLang: (l: InterfaceLanguage
 };
 
 const ContactsView: React.FC<{ onSelect: (id: string) => void, onCreate: () => void, lang: InterfaceLanguage, setLang: (l: InterfaceLanguage) => void }> = ({ onSelect, onCreate, lang, setLang }) => {
-  const companions = db.getCompanions();
+  // Use state to track companions for reactivity
+  const [companions, setCompanions] = useState<Companion[]>(db.getCompanions());
   const labels = DICT[lang];
+
+  useEffect(() => {
+    // Initial sync
+    setCompanions(db.getCompanions());
+    
+    // Subscribe to store changes
+    const unsubscribe = db.subscribe(() => {
+        setCompanions([...db.getCompanions()]); // Force new reference
+    });
+    return unsubscribe;
+  }, []);
 
   return (
     <div className="flex flex-col h-full bg-white">
@@ -200,10 +238,11 @@ const MomentsView: React.FC<{lang: InterfaceLanguage}> = ({lang}) => {
   const labels = DICT[lang];
 
   useEffect(() => {
-      const interval = setInterval(() => {
-          setMoments(db.getMoments());
-      }, 2000); // Poll for new comments/likes
-      return () => clearInterval(interval);
+      // Subscribe to store changes
+      const unsubscribe = db.subscribe(() => {
+          setMoments([...db.getMoments()]);
+      });
+      return unsubscribe;
   }, []);
 
   // V1.3.1 A8: Trigger AI Content with Structured Generation + Image
@@ -234,13 +273,12 @@ const MomentsView: React.FC<{lang: InterfaceLanguage}> = ({lang}) => {
             };
             
             db.addMoment(newMoment);
-            setMoments([...db.getMoments()]); // Use spread to force update
         }
     }
     setGenerating(false);
   };
 
-  const handleUserPost = () => {
+  const handleUserPost = async () => {
       if (!userPostContent.trim()) return;
       const newMoment: Moment = {
           id: `u_${Date.now()}`,
@@ -253,15 +291,24 @@ const MomentsView: React.FC<{lang: InterfaceLanguage}> = ({lang}) => {
       db.addMoment(newMoment);
       setUserPostContent('');
       setShowPostInput(false);
-      setMoments([...db.getMoments()]); // Use spread to force update
+
+      // V1.8: Trigger AI Comment on User Post
+      const companions = db.getCompanions();
+      if (companions.length > 0) {
+          const randomComp = companions[Math.floor(Math.random() * companions.length)];
+          // Simulated delay for AI reading the post
+          setTimeout(async () => {
+              const comment = await generateMomentComment(randomComp, newMoment.content);
+              if (comment) {
+                  db.addComment(newMoment.id, comment, randomComp);
+              }
+          }, 3000);
+      }
   };
 
   const handleLike = async (e: React.MouseEvent, id: string) => {
       e.stopPropagation(); // Prevent container clicks
       await db.likeMoment(id);
-      // CRITICAL FIX: Use spread operator [...array] to create a NEW reference.
-      // This forces React to perceive the change and re-render the heart icon immediately.
-      setMoments([...db.getMoments()]);
   };
 
   // V1.4 A12: Handle User Comment
@@ -270,7 +317,21 @@ const MomentsView: React.FC<{lang: InterfaceLanguage}> = ({lang}) => {
       db.addComment(momentId, commentInput);
       setCommentInput('');
       setActiveCommentId(null);
-      setMoments([...db.getMoments()]);
+      
+      // V1.8: Trigger AI Reply if the moment belongs to an AI
+      const moment = moments.find(m => m.id === momentId);
+      if (moment && moment.authorRole === 'model' && moment.companionId) {
+           const comp = db.getCompanion(moment.companionId);
+           if (comp) {
+               // Simulated delay for AI reply
+               setTimeout(async () => {
+                   const reply = await generateMomentReply(comp, moment.content, commentInput);
+                   if (reply) {
+                       db.addComment(momentId, reply, comp);
+                   }
+               }, 2500);
+           }
+      }
   };
 
   // V1.4 A11: Translate
@@ -330,7 +391,7 @@ const MomentsView: React.FC<{lang: InterfaceLanguage}> = ({lang}) => {
           return (
             <div key={m.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                <div className="p-4 flex items-center space-x-3">
-                 <img src={authorAvatar} className="w-10 h-10 rounded-full" alt="avatar" />
+                 <img src={authorAvatar} className="w-10 h-10 rounded-full object-cover" alt="avatar" />
                  <div>
                      <h4 className="font-bold text-sm text-gray-900 flex items-center">{authorName} {authorStatus}</h4>
                      <span className="text-xs text-gray-400 flex items-center gap-1">
@@ -422,6 +483,12 @@ const App: React.FC = () => {
 
   const labels = DICT[lang];
 
+  const handleDeleteCompanion = async (id: string) => {
+      await db.deleteCompanion(id);
+      setActiveCompanionId(null);
+      setView(ViewState.CONTACTS);
+  };
+
   const renderContent = () => {
     switch (view) {
       case ViewState.CONTACTS:
@@ -437,6 +504,7 @@ const App: React.FC = () => {
             companionId={activeCompanionId} 
             onBack={() => setView(ViewState.CHAT)} 
             onOpenProfile={() => setView(ViewState.PROFILE)}
+            onDelete={handleDeleteCompanion} // Pass delete handler
             lang={lang} 
         />;
       case ViewState.PROFILE:
@@ -477,4 +545,3 @@ const App: React.FC = () => {
 };
 
 export default App;
-    

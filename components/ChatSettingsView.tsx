@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Save, Brain, Trash2, Edit2, User, BookOpen, ChevronDown, ChevronRight, Plus, X, Check, Smile, Image as ImageIcon, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Save, Brain, Trash2, Edit2, User, BookOpen, ChevronDown, ChevronRight, Plus, X, Check, Smile, Image as ImageIcon, MessageSquare, AlertTriangle } from 'lucide-react';
 import { Companion, InterfaceLanguage, DICT, UserIdentity, ChatSettings, Memory } from '../types';
 import { db } from '../services/store';
 
@@ -9,16 +9,18 @@ interface Props {
     lang: InterfaceLanguage;
     onBack: () => void;
     onOpenProfile: () => void;
+    onDelete: (id: string) => void; // New prop
 }
 
 type Section = 'general' | 'identity' | 'config' | 'memories' | null;
 
-const ChatSettingsView: React.FC<Props> = ({ companionId, lang, onBack, onOpenProfile }) => {
+const ChatSettingsView: React.FC<Props> = ({ companionId, lang, onBack, onOpenProfile, onDelete }) => {
     // Re-fetch to ensure fresh data on mount
     const [companion, setCompanion] = useState<Companion | undefined>(db.getCompanion(companionId));
     
     // UI State
     const [activeSection, setActiveSection] = useState<Section>('general');
+    const [showDeleteModal, setShowDeleteModal] = useState(false); // V1.9.5 Custom Modal State
     
     // Staging States
     const [tempIdentity, setTempIdentity] = useState<UserIdentity | undefined>(companion?.userIdentity);
@@ -108,7 +110,7 @@ const ChatSettingsView: React.FC<Props> = ({ companionId, lang, onBack, onOpenPr
     };
 
     return (
-        <div className="flex flex-col h-full bg-white">
+        <div className="flex flex-col h-full bg-white relative">
             <div className="p-4 border-b flex items-center justify-between bg-white z-10 shadow-sm">
                 <div className="flex items-center">
                     <button onClick={onBack} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-full">
@@ -308,7 +310,53 @@ const ChatSettingsView: React.FC<Props> = ({ companionId, lang, onBack, onOpenPr
                         </div>
                     )}
                 </div>
+
+                {/* 5. Delete Button */}
+                <div className="pt-6">
+                    <button 
+                        onClick={() => setShowDeleteModal(true)} 
+                        className="w-full py-4 text-red-500 bg-red-50 border border-red-100 rounded-xl font-bold hover:bg-red-100 active:scale-95 transition-all flex items-center justify-center gap-2"
+                    >
+                        <Trash2 size={18} />
+                        {labels.deleteCompanion}
+                    </button>
+                </div>
             </div>
+
+            {/* V1.9.5 Custom Delete Confirmation Modal */}
+            {showDeleteModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="p-6 text-center">
+                            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <AlertTriangle size={32} className="text-red-500" />
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">{labels.deleteCompanion}</h3>
+                            <p className="text-gray-500 text-sm leading-relaxed">
+                                {labels.deleteCompanionConfirm}
+                            </p>
+                        </div>
+                        <div className="flex border-t border-gray-100">
+                            <button 
+                                onClick={() => setShowDeleteModal(false)}
+                                className="flex-1 py-4 text-gray-600 font-bold hover:bg-gray-50 transition active:bg-gray-100"
+                            >
+                                {labels.cancel}
+                            </button>
+                            <div className="w-px bg-gray-100"></div>
+                            <button 
+                                onClick={() => {
+                                    onDelete(companionId);
+                                    setShowDeleteModal(false);
+                                }}
+                                className="flex-1 py-4 text-red-600 font-bold hover:bg-red-50 transition active:bg-red-100"
+                            >
+                                {labels.delete}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -319,4 +367,3 @@ const SettingsIcon: React.FC<{size: number, className: string}> = ({size, classN
 );
 
 export default ChatSettingsView;
-    
